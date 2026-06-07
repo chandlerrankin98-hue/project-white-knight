@@ -1,0 +1,940 @@
+import { useState, useEffect } from "react";
+import {
+  Plus, BookOpen, Users, Clock, Trash2, Skull, Heart, HelpCircle,
+  X, ChevronDown, ChevronUp, Youtube, ExternalLink, Sparkles, Loader
+} from "lucide-react";
+
+const FONTS = `
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700&family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&display=swap');
+`;
+
+const CAMPAIGNS = [
+  { id: "c1", name: "Vox Machina",  short: "C1", accent: "#d97706", searchName: "Critical Role Campaign 1" },
+  { id: "c2", name: "Mighty Nein",  short: "C2", accent: "#7c3aed", searchName: "Critical Role Campaign 2" },
+  { id: "c3", name: "Bells Hells",  short: "C3", accent: "#dc2626", searchName: "Critical Role Campaign 3" },
+  { id: "c4", name: "Age of Umbra", short: "C4", accent: "#0891b2", searchName: "Critical Role Age of Umbra" },
+  { id: "other", name: "One-Shots", short: "OS", accent: "#65a30d", searchName: "Critical Role one-shot" },
+];
+
+const STATUSES = [
+  { id: "alive",   label: "Alive",   icon: Heart,       color: "text-emerald-400" },
+  { id: "dead",    label: "Dead",    icon: Skull,       color: "text-rose-400" },
+  { id: "unknown", label: "Unknown", icon: HelpCircle,  color: "text-amber-400" },
+];
+
+// Extract a YouTube video ID from any common URL format
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const patterns = [
+    /youtube\.com\/watch\?v=([^&]+)/,
+    /youtu\.be\/([^?&]+)/,
+    /youtube\.com\/embed\/([^?&]+)/,
+    /youtube\.com\/v\/([^?&]+)/,
+  ];
+  for (const p of patterns) {
+    const m = url.match(p);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+function youtubeSearchUrl(campaign, episodeNum, title) {
+  const camp = CAMPAIGNS.find((c) => c.id === campaign);
+  const q = `${camp?.searchName || "Critical Role"} Episode ${episodeNum}${title ? " " + title : ""}`;
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`;
+}
+
+export default function CriticalRoleTracker() {
+  const [activeCampaign, setActiveCampaign] = useState("c3");
+  const [view, setView] = useState("episodes");
+  const [episodes, setEpisodes] = useState([]);
+  const [characters, setCharacters] = useState([]);
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(null);
+  const [selectedChar, setSelectedChar] = useState(null);
+  const [expandedEp, setExpandedEp] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await window.storage.get("cr-tracker-data");
+        if (data?.value) {
+          const parsed = JSON.parse(data.value);
+          setEpisodes(parsed.episodes || []);
+          setCharacters(parsed.characters || []);
+          setEvents(parsed.events || []);
+        }
+      } catch (e) {
+        // first run
+      }
+      setLoading(false);
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    (async () => {
+      try {
+        await window.storage.set(
+          "cr-tracker-data",
+          JSON.stringify({ episodes, characters, events })
+        );
+      } catch (e) {
+        console.error("Save failed:", e);
+      }
+    })();
+  }, [episodes, characters, events, loading]);
+
+  // Filter everything by active campaign
+  const campEpisodes = episodes.filter((e) => e.campaign === activeCampaign);
+  const campCharacters = characters.filter((c) => c.campaign === activeCampaign);
+  const campEpisodeIds = new Set(campEpisodes.map((e) => e.id));
+  const campEvents = events.filter((ev) => campEpisodeIds.has(ev.episodeId));
+
+  const addEpisode = (ep) => {
+    setEpisodes([...episodes, { ...ep, id: Date.now().toString() }]);
+    setShowAdd(null);
+  };
+  const updateEpisode = (id, patch) => {
+    setEpisodes(episodes.map((e) => (e.id === id ? { ...e, ...patch } : e)));
+  };
+  const deleteEpisode = (id) => {
+    setEpisodes(episodes.filter((e) => e.id !== id));
+    setEvents(events.filter((ev) => ev.episodeId !== id));
+  };
+
+  const addCharacter = (char) => {
+    setCharacters([...characters, { ...char, id: Date.now().toString() }]);
+    setShowAdd(null);
+  };
+  const deleteCharacter = (id) => {
+    setCharacters(characters.filter((c) => c.id !== id));
+    setEvents(events.filter((ev) => ev.characterId !== id));
+    if (selectedChar === id) setSelectedChar(null);
+  };
+
+  const addEvent = (event) => {
+    setEvents([...events, { ...event, id: Date.now().toString() }]);
+    setShowAdd(null);
+  };
+  const deleteEvent = (id) => setEvents(events.filter((e) => e.id !== id));
+
+  const currentCamp = CAMPAIGNS.find((c) => c.id === activeCampaign);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#0f0a14] flex items-center justify-center">
+        <div className="text-amber-200 font-serif italic">Unfurling the tome...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className="min-h-screen bg-[#0f0a14] text-amber-50"
+      style={{ fontFamily: "'Cormorant Garamond', serif" }}
+    >
+      <style>{FONTS}</style>
+
+      {/* Header */}
+      <header className="px-5 pt-7 pb-3 border-b border-amber-900/40 bg-gradient-to-b from-[#1a0f1f] to-[#0f0a14]">
+        <div className="flex items-center gap-2 text-amber-500/70 text-[10px] tracking-[0.3em] uppercase mb-1">
+          <span>◆</span> The Chronicler's Tome <span>◆</span>
+        </div>
+        <h1
+          className="text-2xl text-amber-100 tracking-wide"
+          style={{ fontFamily: "'Cinzel', serif", fontWeight: 700 }}
+        >
+          Critical Role
+        </h1>
+      </header>
+
+      {/* Campaign pills */}
+      <div className="overflow-x-auto border-b border-amber-900/30 bg-[#140a1a]">
+        <div className="flex gap-2 px-4 py-3 min-w-max">
+          {CAMPAIGNS.map((c) => {
+            const active = activeCampaign === c.id;
+            const epCount = episodes.filter((e) => e.campaign === c.id).length;
+            return (
+              <button
+                key={c.id}
+                onClick={() => {
+                  setActiveCampaign(c.id);
+                  setSelectedChar(null);
+                  setExpandedEp(null);
+                }}
+                className={`px-3.5 py-1.5 rounded-full border text-sm whitespace-nowrap transition-all ${
+                  active
+                    ? "border-transparent text-[#0f0a14] font-semibold"
+                    : "border-amber-900/40 text-amber-200/60 hover:text-amber-200"
+                }`}
+                style={{
+                  backgroundColor: active ? c.accent : "transparent",
+                  fontFamily: "'Cinzel', serif",
+                  letterSpacing: "0.05em",
+                }}
+              >
+                {c.short} <span className="opacity-70">· {c.name}</span>
+                {epCount > 0 && (
+                  <span className={`ml-1.5 text-xs ${active ? "opacity-80" : "opacity-50"}`}>
+                    ({epCount})
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Sub-tabs (within campaign) */}
+      <nav className="sticky top-0 z-10 bg-[#0f0a14]/95 backdrop-blur border-b border-amber-900/40">
+        <div className="flex">
+          {[
+            { id: "episodes",   label: "Episodes",   icon: BookOpen, count: campEpisodes.length },
+            { id: "characters", label: "Characters", icon: Users,    count: campCharacters.length },
+            { id: "timeline",   label: "Timeline",   icon: Clock,    count: campEvents.length },
+          ].map((tab) => {
+            const Icon = tab.icon;
+            const active = view === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => {
+                  setView(tab.id);
+                  setSelectedChar(null);
+                }}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-2.5 transition-colors ${
+                  active ? "text-amber-300" : "text-amber-200/40"
+                }`}
+                style={{ borderBottom: active ? `2px solid ${currentCamp.accent}` : "2px solid transparent" }}
+              >
+                <Icon size={16} />
+                <span className="text-[10px] tracking-widest uppercase" style={{ fontFamily: "'Cinzel', serif" }}>
+                  {tab.label}
+                  {tab.count > 0 && <span className="opacity-50 ml-1">({tab.count})</span>}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <main className="px-4 py-5 pb-24">
+        {view === "episodes" && (
+          <EpisodesView
+            campaign={currentCamp}
+            episodes={campEpisodes}
+            expandedEp={expandedEp}
+            setExpandedEp={setExpandedEp}
+            deleteEpisode={deleteEpisode}
+            updateEpisode={updateEpisode}
+          />
+        )}
+
+        {view === "characters" && !selectedChar && (
+          <CharactersView
+            characters={campCharacters}
+            setSelectedChar={setSelectedChar}
+            deleteCharacter={deleteCharacter}
+          />
+        )}
+
+        {view === "characters" && selectedChar && (
+          <CharacterDetail
+            character={characters.find((c) => c.id === selectedChar)}
+            events={events.filter((e) => e.characterId === selectedChar)}
+            episodes={campEpisodes}
+            onBack={() => setSelectedChar(null)}
+            onDeleteEvent={deleteEvent}
+          />
+        )}
+
+        {view === "timeline" && (
+          <TimelineView
+            events={campEvents}
+            characters={campCharacters}
+            episodes={campEpisodes}
+            deleteEvent={deleteEvent}
+          />
+        )}
+      </main>
+
+      {/* FAB */}
+      <button
+        onClick={() => {
+          if (view === "episodes") setShowAdd("episode");
+          else if (view === "characters" && !selectedChar) setShowAdd("character");
+          else if (view === "characters" && selectedChar) setShowAdd("event-for-" + selectedChar);
+          else if (view === "timeline") setShowAdd("event");
+        }}
+        className="fixed bottom-6 right-6 w-14 h-14 rounded-full text-[#1a0f1f] shadow-lg flex items-center justify-center hover:scale-105 transition-all active:scale-95"
+        style={{ backgroundColor: currentCamp.accent, boxShadow: `0 8px 24px ${currentCamp.accent}40` }}
+      >
+        <Plus size={26} strokeWidth={2.5} />
+      </button>
+
+      {/* Modals */}
+      {showAdd === "episode" && (
+        <AddEpisodeModal
+          campaign={activeCampaign}
+          onSave={addEpisode}
+          onClose={() => setShowAdd(null)}
+        />
+      )}
+      {showAdd === "character" && (
+        <AddCharacterModal
+          campaign={activeCampaign}
+          onSave={addCharacter}
+          onClose={() => setShowAdd(null)}
+        />
+      )}
+      {showAdd === "event" && (
+        <AddEventModal
+          characters={campCharacters}
+          episodes={campEpisodes}
+          onSave={addEvent}
+          onClose={() => setShowAdd(null)}
+        />
+      )}
+      {showAdd?.startsWith("event-for-") && (
+        <AddEventModal
+          characters={campCharacters}
+          episodes={campEpisodes}
+          prefilledCharId={showAdd.replace("event-for-", "")}
+          onSave={addEvent}
+          onClose={() => setShowAdd(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function EpisodesView({ campaign, episodes, expandedEp, setExpandedEp, deleteEpisode, updateEpisode }) {
+  if (episodes.length === 0) {
+    return <EmptyState text={`No episodes in ${campaign.name} yet. Tap + to log one.`} />;
+  }
+  const sorted = [...episodes].sort(
+    (a, b) => (parseInt(a.episodeNum) || 0) - (parseInt(b.episodeNum) || 0)
+  );
+
+  return (
+    <div className="space-y-2">
+      {sorted.map((ep) => {
+        const expanded = expandedEp === ep.id;
+        const videoId = extractYouTubeId(ep.youtubeUrl);
+        return (
+          <div key={ep.id} className="bg-[#1a0f1f]/60 border border-amber-900/30 rounded-lg overflow-hidden">
+            <button
+              onClick={() => setExpandedEp(expanded ? null : ep.id)}
+              className="w-full px-4 py-3 flex items-center gap-3 text-left"
+            >
+              <span className="text-xs font-mono w-12" style={{ color: campaign.accent }}>
+                {campaign.short}E{ep.episodeNum}
+              </span>
+              <span className="flex-1 text-amber-100">{ep.title}</span>
+              {videoId && <Youtube size={14} className="text-red-500/70" />}
+              {expanded ? (
+                <ChevronUp size={16} className="text-amber-500/60" />
+              ) : (
+                <ChevronDown size={16} className="text-amber-500/60" />
+              )}
+            </button>
+
+            {expanded && (
+              <div className="px-4 pb-4 pt-1 border-t border-amber-900/30">
+                {ep.dateWatched && (
+                  <div className="text-amber-500/60 text-xs italic mb-2">
+                    Watched {ep.dateWatched}
+                  </div>
+                )}
+
+                {/* YouTube embed or link */}
+                {videoId ? (
+                  <div className="my-3 rounded-lg overflow-hidden border border-amber-900/40">
+                    <div style={{ paddingBottom: "56.25%", position: "relative" }}>
+                      <iframe
+                        src={`https://www.youtube.com/embed/${videoId}`}
+                        title={ep.title}
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                        allowFullScreen
+                        style={{ position: "absolute", top: 0, left: 0, width: "100%", height: "100%" }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <div className="my-3 flex flex-wrap gap-2">
+                    <a
+                      href={youtubeSearchUrl(campaign.id, ep.episodeNum, ep.title)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-red-500/10 border border-red-500/30 text-red-300 hover:bg-red-500/20"
+                    >
+                      <Youtube size={14} /> Find on YouTube <ExternalLink size={11} />
+                    </a>
+                    <AttachUrlButton
+                      campaign={campaign}
+                      episode={ep}
+                      onAttach={(url) => updateEpisode(ep.id, { youtubeUrl: url })}
+                    />
+                  </div>
+                )}
+
+                {/* Paste URL field (always available) */}
+                <PasteUrlField
+                  value={ep.youtubeUrl || ""}
+                  onChange={(url) => updateEpisode(ep.id, { youtubeUrl: url })}
+                />
+
+                {ep.notes ? (
+                  <p className="text-amber-100/85 whitespace-pre-wrap leading-relaxed mt-3">{ep.notes}</p>
+                ) : (
+                  <p className="text-amber-200/40 italic text-sm mt-3">No notes yet.</p>
+                )}
+                <button
+                  onClick={() => deleteEpisode(ep.id)}
+                  className="mt-3 text-rose-400/70 text-xs flex items-center gap-1 hover:text-rose-300"
+                >
+                  <Trash2 size={12} /> Delete episode
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function PasteUrlField({ value, onChange }) {
+  const [showField, setShowField] = useState(!!value);
+  const [draft, setDraft] = useState(value);
+
+  if (!showField) {
+    return (
+      <button
+        onClick={() => setShowField(true)}
+        className="text-amber-400/60 text-xs hover:text-amber-300 mt-2"
+      >
+        + Paste YouTube URL manually
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex gap-2 mt-2">
+      <input
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="https://youtube.com/watch?v=..."
+        className="flex-1 bg-[#0f0a14] border border-amber-900/40 rounded px-2 py-1.5 text-amber-100 text-xs focus:outline-none focus:border-amber-500/60"
+      />
+      <button
+        onClick={() => {
+          onChange(draft);
+          setShowField(!!draft);
+        }}
+        className="px-3 py-1.5 rounded bg-amber-500 text-[#1a0f1f] text-xs font-semibold"
+      >
+        Save
+      </button>
+    </div>
+  );
+}
+
+function AttachUrlButton({ campaign, episode, onAttach }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const handleClick = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const camp = CAMPAIGNS.find((c) => c.id === campaign.id);
+      const prompt = `Find the official YouTube video URL for "${camp.searchName}" Episode ${episode.episodeNum}${
+        episode.title ? ` titled "${episode.title}"` : ""
+      }. Search the web. Return ONLY a single YouTube URL (https://www.youtube.com/watch?v=...) and nothing else. If you can't find a confident match, return exactly: NOT_FOUND`;
+
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 1000,
+          messages: [{ role: "user", content: prompt }],
+          tools: [{ type: "web_search_20250305", name: "web_search" }],
+        }),
+      });
+
+      const data = await response.json();
+      const text = (data.content || [])
+        .filter((b) => b.type === "text")
+        .map((b) => b.text)
+        .join(" ")
+        .trim();
+
+      const urlMatch = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/);
+      if (urlMatch) {
+        onAttach(urlMatch[0]);
+      } else {
+        setError("Couldn't find it — try the search button instead.");
+      }
+    } catch (e) {
+      setError("Auto-find failed. Try the search button.");
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="flex flex-col">
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded text-xs bg-amber-500/10 border border-amber-500/30 text-amber-300 hover:bg-amber-500/20 disabled:opacity-50"
+      >
+        {loading ? <Loader size={14} className="animate-spin" /> : <Sparkles size={14} />}
+        {loading ? "Searching..." : "Auto-fetch URL"}
+      </button>
+      {error && <span className="text-rose-400/80 text-[10px] mt-1">{error}</span>}
+    </div>
+  );
+}
+
+function CharactersView({ characters, setSelectedChar, deleteCharacter }) {
+  if (characters.length === 0) return <EmptyState text="No characters in this campaign yet." />;
+  return (
+    <div className="grid grid-cols-1 gap-3">
+      {characters.map((char) => {
+        const status = STATUSES.find((s) => s.id === char.status) || STATUSES[0];
+        const StatusIcon = status.icon;
+        return (
+          <div
+            key={char.id}
+            className="bg-gradient-to-br from-[#1a0f1f] to-[#0f0a14] border border-amber-900/40 rounded-lg p-4"
+          >
+            <div className="flex items-start justify-between mb-2">
+              <button onClick={() => setSelectedChar(char.id)} className="text-left flex-1">
+                <h3 className="text-amber-100 text-xl" style={{ fontFamily: "'Cinzel', serif" }}>
+                  {char.name}
+                </h3>
+                {char.title && <div className="text-amber-300/70 text-sm italic">{char.title}</div>}
+              </button>
+              <StatusIcon className={status.color} size={20} />
+            </div>
+            {char.player && (
+              <div className="text-xs text-amber-200/60 mb-2">Played by {char.player}</div>
+            )}
+            {char.notes && <p className="text-amber-100/75 text-sm">{char.notes}</p>}
+            <div className="mt-3 flex justify-between items-center">
+              <button
+                onClick={() => setSelectedChar(char.id)}
+                className="text-amber-400 text-xs tracking-widest uppercase"
+                style={{ fontFamily: "'Cinzel', serif" }}
+              >
+                View Timeline →
+              </button>
+              <button
+                onClick={() => deleteCharacter(char.id)}
+                className="text-rose-400/60 hover:text-rose-300"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function CharacterDetail({ character, events, episodes, onBack, onDeleteEvent }) {
+  if (!character) return null;
+  const status = STATUSES.find((s) => s.id === character.status) || STATUSES[0];
+  const StatusIcon = status.icon;
+  const campaign = CAMPAIGNS.find((c) => c.id === character.campaign);
+
+  const sortedEvents = [...events].sort((a, b) => {
+    const epA = episodes.find((e) => e.id === a.episodeId);
+    const epB = episodes.find((e) => e.id === b.episodeId);
+    return (parseInt(epA?.episodeNum) || 0) - (parseInt(epB?.episodeNum) || 0);
+  });
+
+  return (
+    <div>
+      <button onClick={onBack} className="text-amber-400/70 text-sm mb-4 flex items-center gap-1">
+        ← Back
+      </button>
+      <div className="bg-gradient-to-br from-[#1a0f1f] to-[#0f0a14] border border-amber-900/40 rounded-lg p-5 mb-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <h2 className="text-amber-100 text-2xl" style={{ fontFamily: "'Cinzel', serif" }}>
+              {character.name}
+            </h2>
+            {character.title && (
+              <div className="text-amber-300/70 italic">{character.title}</div>
+            )}
+          </div>
+          <StatusIcon className={status.color} size={24} />
+        </div>
+        <div className="text-amber-200/60 text-sm mt-2">
+          {campaign?.name} {character.player && `· ${character.player}`}
+        </div>
+        {character.notes && <p className="text-amber-100/85 mt-3">{character.notes}</p>}
+      </div>
+
+      <h3
+        className="text-amber-400/80 text-sm tracking-[0.25em] uppercase mb-3"
+        style={{ fontFamily: "'Cinzel', serif" }}
+      >
+        Timeline
+      </h3>
+
+      {sortedEvents.length === 0 ? (
+        <EmptyState text="No events logged. Tap + to add one." />
+      ) : (
+        <ol className="relative border-l-2 border-amber-900/40 ml-3 space-y-4">
+          {sortedEvents.map((ev) => {
+            const ep = episodes.find((e) => e.id === ev.episodeId);
+            return (
+              <li key={ev.id} className="ml-5">
+                <div
+                  className="absolute -left-[7px] w-3 h-3 rounded-full border-2 border-[#0f0a14]"
+                  style={{ backgroundColor: campaign.accent }}
+                />
+                <div className="bg-[#1a0f1f]/60 border border-amber-900/30 rounded-lg p-3">
+                  {ep && (
+                    <div className="text-xs font-mono mb-1" style={{ color: campaign.accent }}>
+                      {campaign.short}E{ep.episodeNum} · {ep.title}
+                    </div>
+                  )}
+                  <p className="text-amber-100/90">{ev.description}</p>
+                  <button
+                    onClick={() => onDeleteEvent(ev.id)}
+                    className="mt-2 text-rose-400/60 hover:text-rose-300"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+    </div>
+  );
+}
+
+function TimelineView({ events, characters, episodes, deleteEvent }) {
+  if (events.length === 0) return <EmptyState text="No timeline events yet for this campaign." />;
+  const sorted = [...events].sort((a, b) => {
+    const epA = episodes.find((e) => e.id === a.episodeId);
+    const epB = episodes.find((e) => e.id === b.episodeId);
+    return (parseInt(epA?.episodeNum) || 0) - (parseInt(epB?.episodeNum) || 0);
+  });
+  return (
+    <ol className="relative border-l-2 border-amber-900/40 ml-3 space-y-4">
+      {sorted.map((ev) => {
+        const char = characters.find((c) => c.id === ev.characterId);
+        const ep = episodes.find((e) => e.id === ev.episodeId);
+        const campaign = ep ? CAMPAIGNS.find((c) => c.id === ep.campaign) : null;
+        return (
+          <li key={ev.id} className="ml-5">
+            <div
+              className="absolute -left-[7px] w-3 h-3 rounded-full border-2 border-[#0f0a14]"
+              style={{ backgroundColor: campaign?.accent || "#d97706" }}
+            />
+            <div className="bg-[#1a0f1f]/60 border border-amber-900/30 rounded-lg p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-amber-100" style={{ fontFamily: "'Cinzel', serif" }}>
+                  {char?.name || "Unknown"}
+                </span>
+                {ep && (
+                  <span className="text-xs font-mono" style={{ color: campaign?.accent }}>
+                    {campaign?.short}E{ep.episodeNum}
+                  </span>
+                )}
+              </div>
+              <p className="text-amber-100/85 text-sm">{ev.description}</p>
+              <button
+                onClick={() => deleteEvent(ev.id)}
+                className="mt-2 text-rose-400/60 hover:text-rose-300"
+              >
+                <Trash2 size={12} />
+              </button>
+            </div>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function EmptyState({ text }) {
+  return (
+    <div className="text-center py-16 text-amber-200/40 italic">
+      <div className="text-4xl mb-3 text-amber-500/30">✦</div>
+      {text}
+    </div>
+  );
+}
+
+function Modal({ title, onClose, children }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-0 sm:p-4">
+      <div className="bg-[#1a0f1f] border border-amber-900/40 rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between mb-4">
+          <h3
+            className="text-amber-100 text-lg tracking-wide"
+            style={{ fontFamily: "'Cinzel', serif" }}
+          >
+            {title}
+          </h3>
+          <button onClick={onClose} className="text-amber-200/60 hover:text-amber-100">
+            <X size={20} />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <label className="block mb-3">
+      <span
+        className="block text-amber-300/70 text-xs tracking-widest uppercase mb-1"
+        style={{ fontFamily: "'Cinzel', serif" }}
+      >
+        {label}
+      </span>
+      {children}
+    </label>
+  );
+}
+
+const inputClass =
+  "w-full bg-[#0f0a14] border border-amber-900/40 rounded px-3 py-2 text-amber-100 focus:outline-none focus:border-amber-500/60 text-base";
+
+function AddEpisodeModal({ campaign, onSave, onClose }) {
+  const [episodeNum, setEpisodeNum] = useState("");
+  const [title, setTitle] = useState("");
+  const [dateWatched, setDateWatched] = useState(new Date().toISOString().slice(0, 10));
+  const [notes, setNotes] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+
+  const camp = CAMPAIGNS.find((c) => c.id === campaign);
+
+  const submit = () => {
+    if (!episodeNum || !title) return;
+    onSave({ campaign, episodeNum, title, dateWatched, notes, youtubeUrl });
+  };
+
+  return (
+    <Modal title={`Log ${camp.name} Episode`} onClose={onClose}>
+      <Field label="Episode #">
+        <input
+          className={inputClass}
+          value={episodeNum}
+          onChange={(e) => setEpisodeNum(e.target.value)}
+          placeholder="45"
+        />
+      </Field>
+      <Field label="Title">
+        <input
+          className={inputClass}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="A Stage Set"
+        />
+      </Field>
+      <Field label="Date Watched">
+        <input
+          type="date"
+          className={inputClass}
+          value={dateWatched}
+          onChange={(e) => setDateWatched(e.target.value)}
+        />
+      </Field>
+      <Field label="YouTube URL (optional)">
+        <input
+          className={inputClass}
+          value={youtubeUrl}
+          onChange={(e) => setYoutubeUrl(e.target.value)}
+          placeholder="Paste now, or attach later"
+        />
+        {episodeNum && (
+          <a
+            href={youtubeSearchUrl(campaign, episodeNum, title)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1 mt-1"
+          >
+            <Youtube size={12} /> Search YouTube for this episode
+          </a>
+        )}
+      </Field>
+      <Field label="Notes">
+        <textarea
+          className={inputClass}
+          rows={4}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Key moments, reactions, quotes..."
+        />
+      </Field>
+      <button
+        onClick={submit}
+        className="w-full bg-amber-500 hover:bg-amber-400 text-[#1a0f1f] font-semibold py-2.5 rounded tracking-widest text-sm uppercase"
+        style={{ fontFamily: "'Cinzel', serif" }}
+      >
+        Save Episode
+      </button>
+    </Modal>
+  );
+}
+
+function AddCharacterModal({ campaign, onSave, onClose }) {
+  const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [player, setPlayer] = useState("");
+  const [status, setStatus] = useState("alive");
+  const [notes, setNotes] = useState("");
+
+  const camp = CAMPAIGNS.find((c) => c.id === campaign);
+
+  const submit = () => {
+    if (!name) return;
+    onSave({ name, title, campaign, player, status, notes });
+  };
+
+  return (
+    <Modal title={`Add Character — ${camp.name}`} onClose={onClose}>
+      <Field label="Name">
+        <input
+          className={inputClass}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Imogen Temult"
+        />
+      </Field>
+      <Field label="Title / Class">
+        <input
+          className={inputClass}
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+          placeholder="Sorcerer of the Storm"
+        />
+      </Field>
+      <Field label="Player">
+        <input
+          className={inputClass}
+          value={player}
+          onChange={(e) => setPlayer(e.target.value)}
+          placeholder="Laura Bailey"
+        />
+      </Field>
+      <Field label="Status">
+        <div className="flex gap-2">
+          {STATUSES.map((s) => (
+            <button
+              key={s.id}
+              onClick={() => setStatus(s.id)}
+              className={`flex-1 py-2 rounded border text-sm ${
+                status === s.id
+                  ? "border-amber-500 bg-amber-500/10 text-amber-200"
+                  : "border-amber-900/40 text-amber-200/50"
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </Field>
+      <Field label="Notes">
+        <textarea
+          className={inputClass}
+          rows={3}
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="Background, motivations, traits..."
+        />
+      </Field>
+      <button
+        onClick={submit}
+        className="w-full bg-amber-500 hover:bg-amber-400 text-[#1a0f1f] font-semibold py-2.5 rounded tracking-widest text-sm uppercase"
+        style={{ fontFamily: "'Cinzel', serif" }}
+      >
+        Add Character
+      </button>
+    </Modal>
+  );
+}
+
+function AddEventModal({ characters, episodes, prefilledCharId, onSave, onClose }) {
+  const [characterId, setCharacterId] = useState(prefilledCharId || characters[0]?.id || "");
+  const [episodeId, setEpisodeId] = useState(episodes[episodes.length - 1]?.id || "");
+  const [description, setDescription] = useState("");
+
+  if (characters.length === 0) {
+    return (
+      <Modal title="Add Event" onClose={onClose}>
+        <p className="text-amber-200/70 mb-4">Add a character to this campaign first.</p>
+        <button onClick={onClose} className="w-full bg-amber-500 text-[#1a0f1f] py-2 rounded">OK</button>
+      </Modal>
+    );
+  }
+  if (episodes.length === 0) {
+    return (
+      <Modal title="Add Event" onClose={onClose}>
+        <p className="text-amber-200/70 mb-4">Log an episode in this campaign first.</p>
+        <button onClick={onClose} className="w-full bg-amber-500 text-[#1a0f1f] py-2 rounded">OK</button>
+      </Modal>
+    );
+  }
+
+  const submit = () => {
+    if (!description) return;
+    onSave({ characterId, episodeId, description });
+  };
+
+  return (
+    <Modal title="Add Timeline Event" onClose={onClose}>
+      <Field label="Character">
+        <select className={inputClass} value={characterId} onChange={(e) => setCharacterId(e.target.value)}>
+          {characters.map((c) => (
+            <option key={c.id} value={c.id}>{c.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="Episode">
+        <select className={inputClass} value={episodeId} onChange={(e) => setEpisodeId(e.target.value)}>
+          {episodes.map((e) => {
+            const camp = CAMPAIGNS.find((c) => c.id === e.campaign);
+            return (
+              <option key={e.id} value={e.id}>
+                {camp?.short}E{e.episodeNum} — {e.title}
+              </option>
+            );
+          })}
+        </select>
+      </Field>
+      <Field label="What happened?">
+        <textarea
+          className={inputClass}
+          rows={4}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Met the Hells. Discovered the shard. Made a deal with..."
+        />
+      </Field>
+      <button
+        onClick={submit}
+        className="w-full bg-amber-500 hover:bg-amber-400 text-[#1a0f1f] font-semibold py-2.5 rounded tracking-widest text-sm uppercase"
+        style={{ fontFamily: "'Cinzel', serif" }}
+      >
+        Save Event
+      </button>
+    </Modal>
+  );
+}
