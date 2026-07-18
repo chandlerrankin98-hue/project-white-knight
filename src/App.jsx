@@ -24,6 +24,7 @@ export default function App() {
     updateEpisode,
     deleteEpisode,
     addCharacter,
+    updateCharacter,
     deleteCharacter,
     addEvent,
     deleteEvent,
@@ -192,6 +193,7 @@ export default function App() {
             episodes={campEpisodes}
             onBack={() => setSelectedChar(null)}
             onDeleteEvent={deleteEvent}
+            updateCharacter={updateCharacter}
           />
         )}
 

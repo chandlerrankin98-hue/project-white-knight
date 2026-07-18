@@ -6,7 +6,7 @@
 // blobs forward as the data model grows.
 
 const STORAGE_KEY = "cr-tracker-data";
-export const CURRENT_VERSION = 2;
+export const CURRENT_VERSION = 3;
 
 export function emptyData() {
   return {
@@ -35,12 +35,12 @@ export function migrate(raw) {
     };
   }
 
-  // Backfill any missing top-level arrays and per-episode fields defensively,
-  // regardless of the version we started from.
+  // Backfill any missing top-level arrays and per-record fields defensively,
+  // regardless of the version we started from. v3 adds `stats` to characters.
   return {
     version: CURRENT_VERSION,
     episodes: (data.episodes || []).map((ep) => ({ summary: "", ...ep })),
-    characters: data.characters || [],
+    characters: (data.characters || []).map((ch) => ({ stats: "", ...ch })),
     events: data.events || [],
     connections: data.connections || [],
   };

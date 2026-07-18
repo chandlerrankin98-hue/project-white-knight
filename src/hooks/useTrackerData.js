@@ -60,7 +60,7 @@ export function useTrackerData() {
 
   // --- Characters ---
   const addCharacter = useCallback((fields) => {
-    const character = { id: newId(), ...fields };
+    const character = { id: newId(), stats: "", ...fields };
     setData((d) => ({ ...d, characters: [...d.characters, character] }));
     return character;
   }, []);
