@@ -1,19 +1,29 @@
 import { useState } from "react";
 import { STATUSES, campaignById } from "../../constants.js";
 import { Modal, Field, inputClass } from "../ui.jsx";
+import CharacterAutoFillButton from "../CharacterAutoFillButton.jsx";
 
 export default function AddCharacterModal({ campaign, onSave, onClose }) {
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [player, setPlayer] = useState("");
   const [status, setStatus] = useState("alive");
+  const [stats, setStats] = useState("");
   const [notes, setNotes] = useState("");
 
   const camp = campaignById(campaign);
 
   const submit = () => {
     if (!name) return;
-    onSave({ name, title, campaign, player, status, notes });
+    onSave({ name, title, campaign, player, status, stats, notes });
+  };
+
+  // Apply accepted auto-fill fields to the matching modal state.
+  const applyAutoFill = (fields) => {
+    if (fields.title != null) setTitle(fields.title);
+    if (fields.player != null) setPlayer(fields.player);
+    if (fields.stats != null) setStats(fields.stats);
+    if (fields.notes != null) setNotes(fields.notes);
   };
 
   return (
@@ -26,6 +36,11 @@ export default function AddCharacterModal({ campaign, onSave, onClose }) {
           placeholder="Imogen Temult"
         />
       </Field>
+
+      {/* Auto-fill class/player/stats/notes from just the name */}
+      <div className="mb-3 -mt-1">
+        <CharacterAutoFillButton campaign={camp} name={name} onApply={applyAutoFill} />
+      </div>
       <Field label="Title / Class">
         <input
           className={inputClass}
@@ -58,6 +73,15 @@ export default function AddCharacterModal({ campaign, onSave, onClose }) {
             </button>
           ))}
         </div>
+      </Field>
+      <Field label="Stats & skills">
+        <textarea
+          className={inputClass}
+          rows={4}
+          value={stats}
+          onChange={(e) => setStats(e.target.value)}
+          placeholder="Race, class & subclass, level, ability scores, notable skills..."
+        />
       </Field>
       <Field label="Notes">
         <textarea

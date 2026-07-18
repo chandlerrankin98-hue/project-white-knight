@@ -1,8 +1,9 @@
 import { Trash2 } from "lucide-react";
 import { statusById, campaignById } from "../constants.js";
 import { EmptyState } from "../components/ui.jsx";
+import CharacterAutoFillButton from "../components/CharacterAutoFillButton.jsx";
 
-export default function CharacterDetail({ character, events, episodes, onBack, onDeleteEvent }) {
+export default function CharacterDetail({ character, events, episodes, onBack, onDeleteEvent, updateCharacter }) {
   if (!character) return null;
   const status = statusById(character.status) || statusById("alive");
   const StatusIcon = status.icon;
@@ -31,6 +32,30 @@ export default function CharacterDetail({ character, events, episodes, onBack, o
           {campaign?.name} {character.player && `· ${character.player}`}
         </div>
         {character.notes && <p className="text-amber-100/85 mt-3">{character.notes}</p>}
+
+        {/* Stats & skills block */}
+        {character.stats && (
+          <div className="mt-4 pt-3 border-t border-amber-900/30">
+            <div className="text-amber-400/80 text-[11px] tracking-[0.2em] uppercase font-display mb-1">
+              Stats &amp; skills
+            </div>
+            <pre className="text-amber-100/85 text-sm whitespace-pre-wrap font-body leading-relaxed">
+              {character.stats}
+            </pre>
+          </div>
+        )}
+
+        {/* Auto-fill (preview-then-accept); applies to this character */}
+        {updateCharacter && (
+          <div className="mt-3">
+            <CharacterAutoFillButton
+              campaign={campaign}
+              name={character.name}
+              label={character.stats ? "Auto-fill again" : "Auto-fill stats & details"}
+              onApply={(fields) => updateCharacter(character.id, fields)}
+            />
+          </div>
+        )}
       </div>
 
       <h3 className="text-amber-400/80 text-sm tracking-[0.25em] uppercase mb-3 font-display">
