@@ -8,6 +8,10 @@ export default function EpisodesView({
   setExpandedEp,
   deleteEpisode,
   updateEpisode,
+  connections,
+  allEpisodes,
+  addConnection,
+  deleteConnection,
 }) {
   if (episodes.length === 0) {
     return <EmptyState text={`No episodes in ${campaign.name} yet. Tap + to log one.`} />;
@@ -28,6 +32,10 @@ export default function EpisodesView({
           onToggle={() => setExpandedEp(expandedEp === ep.id ? null : ep.id)}
           deleteEpisode={deleteEpisode}
           updateEpisode={updateEpisode}
+          connections={connections}
+          allEpisodes={allEpisodes}
+          addConnection={addConnection}
+          deleteConnection={deleteConnection}
         />
       ))}
     </div>

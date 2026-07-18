@@ -3,9 +3,21 @@ import { Trash2, Youtube, ExternalLink, ChevronDown, ChevronUp, Pencil, Check } 
 import { extractYouTubeId, youtubeSearchUrl } from "../utils/youtube.js";
 import PasteUrlField from "./PasteUrlField.jsx";
 import AttachUrlButton from "./AttachUrlButton.jsx";
+import ConnectionsPanel from "./ConnectionsPanel.jsx";
 
 // A single expandable episode row. `campaign` is the full campaign object.
-export default function EpisodeCard({ ep, campaign, expanded, onToggle, deleteEpisode, updateEpisode }) {
+export default function EpisodeCard({
+  ep,
+  campaign,
+  expanded,
+  onToggle,
+  deleteEpisode,
+  updateEpisode,
+  connections,
+  allEpisodes,
+  addConnection,
+  deleteConnection,
+}) {
   const videoId = extractYouTubeId(ep.youtubeUrl);
   const [editingSummary, setEditingSummary] = useState(false);
   const [summaryDraft, setSummaryDraft] = useState(ep.summary || "");
@@ -127,6 +139,14 @@ export default function EpisodeCard({ ep, campaign, expanded, onToggle, deleteEp
           ) : (
             <p className="text-amber-200/40 italic text-sm mt-3">No notes yet.</p>
           )}
+
+          <ConnectionsPanel
+            ep={ep}
+            connections={connections}
+            allEpisodes={allEpisodes}
+            addConnection={addConnection}
+            deleteConnection={deleteConnection}
+          />
 
           <button
             onClick={() => deleteEpisode(ep.id)}

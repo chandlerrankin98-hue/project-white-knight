@@ -17,6 +17,7 @@ export default function App() {
     episodes,
     characters,
     events,
+    connections,
     addEpisode,
     updateEpisode,
     deleteEpisode,
@@ -24,6 +25,8 @@ export default function App() {
     deleteCharacter,
     addEvent,
     deleteEvent,
+    addConnection,
+    deleteConnection,
   } = data;
 
   const [activeCampaign, setActiveCampaign] = useState("c3");
@@ -142,6 +145,10 @@ export default function App() {
             setExpandedEp={setExpandedEp}
             deleteEpisode={deleteEpisode}
             updateEpisode={updateEpisode}
+            connections={connections}
+            allEpisodes={episodes}
+            addConnection={addConnection}
+            deleteConnection={deleteConnection}
           />
         )}
 
