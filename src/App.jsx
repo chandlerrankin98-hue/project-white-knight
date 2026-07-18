@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { Plus, BookOpen, Users, Clock } from "lucide-react";
+import { Plus, BookOpen, Users, Clock, Share2 } from "lucide-react";
 import { CAMPAIGNS, campaignById } from "./constants.js";
 import { useTrackerData } from "./hooks/useTrackerData.js";
 import EpisodesView from "./views/EpisodesView.jsx";
 import CharactersView from "./views/CharactersView.jsx";
 import CharacterDetail from "./views/CharacterDetail.jsx";
 import TimelineView from "./views/TimelineView.jsx";
+import GraphView from "./views/GraphView.jsx";
 import AddEpisodeModal from "./components/modals/AddEpisodeModal.jsx";
 import AddCharacterModal from "./components/modals/AddCharacterModal.jsx";
 import AddEventModal from "./components/modals/AddEventModal.jsx";
@@ -40,8 +41,23 @@ export default function App() {
   const campCharacters = characters.filter((c) => c.campaign === activeCampaign);
   const campEpisodeIds = new Set(campEpisodes.map((e) => e.id));
   const campEvents = events.filter((ev) => campEpisodeIds.has(ev.episodeId));
+  // Connections with both ends inside the active campaign (for the tab count).
+  const campConnections = connections.filter(
+    (c) => campEpisodeIds.has(c.fromEpisodeId) && campEpisodeIds.has(c.toEpisodeId)
+  );
 
   const currentCamp = campaignById(activeCampaign);
+
+  // Jump from the graph to an episode: switch to its campaign, open the
+  // Episodes tab, and expand that episode.
+  const jumpToEpisode = (epId) => {
+    const ep = episodes.find((e) => e.id === epId);
+    if (!ep) return;
+    setActiveCampaign(ep.campaign);
+    setView("episodes");
+    setSelectedChar(null);
+    setExpandedEp(epId);
+  };
 
   // Wrap CRUD so modals close after saving, mirroring the original component.
   const handleAddEpisode = (ep) => { addEpisode(ep); setShowAdd(null); };
@@ -110,6 +126,7 @@ export default function App() {
             { id: "episodes", label: "Episodes", icon: BookOpen, count: campEpisodes.length },
             { id: "characters", label: "Characters", icon: Users, count: campCharacters.length },
             { id: "timeline", label: "Timeline", icon: Clock, count: campEvents.length },
+            { id: "graph", label: "Graph", icon: Share2, count: campConnections.length },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = view === tab.id;
@@ -178,9 +195,19 @@ export default function App() {
             deleteEvent={deleteEvent}
           />
         )}
+
+        {view === "graph" && (
+          <GraphView
+            episodes={episodes}
+            connections={connections}
+            activeCampaign={activeCampaign}
+            onJumpToEpisode={jumpToEpisode}
+          />
+        )}
       </main>
 
-      {/* FAB */}
+      {/* FAB — hidden on the graph view, which has no add action */}
+      {view !== "graph" && (
       <button
         onClick={() => {
           if (view === "episodes") setShowAdd("episode");
@@ -193,6 +220,7 @@ export default function App() {
       >
         <Plus size={26} strokeWidth={2.5} />
       </button>
+      )}
 
       {/* Modals */}
       {showAdd === "episode" && (
