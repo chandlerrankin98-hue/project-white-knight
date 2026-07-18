@@ -8,6 +8,7 @@ export default function AddEpisodeModal({ campaign, onSave, onClose }) {
   const [episodeNum, setEpisodeNum] = useState("");
   const [title, setTitle] = useState("");
   const [dateWatched, setDateWatched] = useState(new Date().toISOString().slice(0, 10));
+  const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
 
@@ -15,7 +16,7 @@ export default function AddEpisodeModal({ campaign, onSave, onClose }) {
 
   const submit = () => {
     if (!episodeNum || !title) return;
-    onSave({ campaign, episodeNum, title, dateWatched, notes, youtubeUrl });
+    onSave({ campaign, episodeNum, title, dateWatched, summary, notes, youtubeUrl });
   };
 
   return (
@@ -62,13 +63,22 @@ export default function AddEpisodeModal({ campaign, onSave, onClose }) {
           </a>
         )}
       </Field>
-      <Field label="Notes">
+      <Field label="What happened this episode">
         <textarea
           className={inputClass}
           rows={4}
+          value={summary}
+          onChange={(e) => setSummary(e.target.value)}
+          placeholder="The party arrived in Jrusar, met the Chandei, and discovered the moon was cracking..."
+        />
+      </Field>
+      <Field label="Notes">
+        <textarea
+          className={inputClass}
+          rows={3}
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Key moments, reactions, quotes..."
+          placeholder="Extra reactions, quotes, out-of-game moments..."
         />
       </Field>
       <button

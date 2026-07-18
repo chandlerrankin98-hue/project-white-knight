@@ -1,4 +1,5 @@
-import { Trash2, Youtube, ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Youtube, ExternalLink, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
 import { extractYouTubeId, youtubeSearchUrl } from "../utils/youtube.js";
 import PasteUrlField from "./PasteUrlField.jsx";
 import AttachUrlButton from "./AttachUrlButton.jsx";
@@ -6,6 +7,17 @@ import AttachUrlButton from "./AttachUrlButton.jsx";
 // A single expandable episode row. `campaign` is the full campaign object.
 export default function EpisodeCard({ ep, campaign, expanded, onToggle, deleteEpisode, updateEpisode }) {
   const videoId = extractYouTubeId(ep.youtubeUrl);
+  const [editingSummary, setEditingSummary] = useState(false);
+  const [summaryDraft, setSummaryDraft] = useState(ep.summary || "");
+
+  const startEditSummary = () => {
+    setSummaryDraft(ep.summary || "");
+    setEditingSummary(true);
+  };
+  const saveSummary = () => {
+    updateEpisode(ep.id, { summary: summaryDraft.trim() });
+    setEditingSummary(false);
+  };
 
   return (
     <div className="bg-[#1a0f1f]/60 border border-amber-900/30 rounded-lg overflow-hidden">
@@ -27,6 +39,51 @@ export default function EpisodeCard({ ep, campaign, expanded, onToggle, deleteEp
           {ep.dateWatched && (
             <div className="text-amber-500/60 text-xs italic mb-2">Watched {ep.dateWatched}</div>
           )}
+
+          {/* What happened — the episode summary, inline-editable */}
+          <div className="my-3">
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-amber-400/80 text-[11px] tracking-[0.2em] uppercase font-display">
+                What happened
+              </span>
+              {editingSummary ? (
+                <button
+                  onClick={saveSummary}
+                  className="text-emerald-400/80 hover:text-emerald-300 flex items-center gap-1 text-xs"
+                >
+                  <Check size={13} /> Save
+                </button>
+              ) : (
+                <button
+                  onClick={startEditSummary}
+                  className="text-amber-400/60 hover:text-amber-300 flex items-center gap-1 text-xs"
+                >
+                  <Pencil size={12} /> Edit
+                </button>
+              )}
+            </div>
+            {editingSummary ? (
+              <textarea
+                autoFocus
+                rows={4}
+                value={summaryDraft}
+                onChange={(e) => setSummaryDraft(e.target.value)}
+                placeholder="Recap the key events of this episode..."
+                className="w-full bg-[#0f0a14] border border-amber-900/40 rounded px-3 py-2 text-amber-100 text-base focus:outline-none focus:border-amber-500/60"
+              />
+            ) : ep.summary ? (
+              <p className="text-amber-100/90 whitespace-pre-wrap leading-relaxed text-[1.05rem]">
+                {ep.summary}
+              </p>
+            ) : (
+              <button
+                onClick={startEditSummary}
+                className="text-amber-200/40 italic text-sm hover:text-amber-200/70"
+              >
+                No summary yet — tap to add what happened.
+              </button>
+            )}
+          </div>
 
           {/* YouTube embed or link */}
           {videoId ? (
