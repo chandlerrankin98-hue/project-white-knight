@@ -1,44 +1,42 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sparkles, Loader } from "lucide-react";
-import { campaignById } from "../constants.js";
 
-// NOTE: for now this calls the Anthropic API directly (as the original artifact
-// did). Step 9 of the plan rewires it to POST /api/find-episode-url so the key
-// stays server-side and CORS works from a deployed origin.
+// Auto-fetches an episode's official YouTube URL via the /api/find-episode-url
+// serverless proxy (keeps the Anthropic key server-side). The button hides
+// itself when the proxy reports it isn't configured (no ANTHROPIC_API_KEY) or
+// isn't reachable at all — the manual paste field still covers that case.
 export default function AttachUrlButton({ campaign, episode, onAttach }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [available, setAvailable] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/find-episode-url")
+      .then((r) => (r.ok ? r.json() : { configured: false }))
+      .then((d) => { if (!cancelled) setAvailable(!!d.configured); })
+      .catch(() => { if (!cancelled) setAvailable(false); });
+    return () => { cancelled = true; };
+  }, []);
+
+  if (!available) return null;
 
   const handleClick = async () => {
     setLoading(true);
     setError(null);
     try {
-      const camp = campaignById(campaign.id);
-      const prompt = `Find the official YouTube video URL for "${camp.searchName}" Episode ${episode.episodeNum}${
-        episode.title ? ` titled "${episode.title}"` : ""
-      }. Search the web. Return ONLY a single YouTube URL (https://www.youtube.com/watch?v=...) and nothing else. If you can't find a confident match, return exactly: NOT_FOUND`;
-
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
+      const response = await fetch("/api/find-episode-url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          model: "claude-sonnet-4-20250514",
-          max_tokens: 1000,
-          messages: [{ role: "user", content: prompt }],
-          tools: [{ type: "web_search_20250305", name: "web_search" }],
+          campaign: campaign.id,
+          episodeNum: episode.episodeNum,
+          title: episode.title,
         }),
       });
-
       const data = await response.json();
-      const text = (data.content || [])
-        .filter((b) => b.type === "text")
-        .map((b) => b.text)
-        .join(" ")
-        .trim();
-
-      const urlMatch = text.match(/https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/);
-      if (urlMatch) {
-        onAttach(urlMatch[0]);
+      if (data.url) {
+        onAttach(data.url);
       } else {
         setError("Couldn't find it — try the search button instead.");
       }
