@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Trash2, Youtube, ExternalLink, ChevronDown, ChevronUp, Pencil, Check } from "lucide-react";
 import { extractYouTubeId, youtubeSearchUrl } from "../utils/youtube.js";
 import PasteUrlField from "./PasteUrlField.jsx";
-import AttachUrlButton from "./AttachUrlButton.jsx";
+import AutoFillButton from "./AutoFillButton.jsx";
 import ConnectionsPanel from "./ConnectionsPanel.jsx";
 
 // A single expandable episode row. `campaign` is the full campaign object.
@@ -87,13 +87,26 @@ export default function EpisodeCard({
               <p className="text-amber-100/90 whitespace-pre-wrap leading-relaxed text-[1.05rem]">
                 {ep.summary}
               </p>
-            ) : (
+            ) : ep.summary ? null : (
               <button
                 onClick={startEditSummary}
                 className="text-amber-200/40 italic text-sm hover:text-amber-200/70"
               >
                 No summary yet — tap to add what happened.
               </button>
+            )}
+
+            {/* Auto-fill summary + URL from the episode number (preview-then-accept) */}
+            {!editingSummary && (
+              <div className="mt-2">
+                <AutoFillButton
+                  campaign={campaign}
+                  episodeNum={ep.episodeNum}
+                  title={ep.title}
+                  label={ep.summary ? "Auto-fill again" : "Auto-fill summary & URL"}
+                  onApply={(fields) => updateEpisode(ep.id, fields)}
+                />
+              </div>
             )}
           </div>
 
@@ -120,10 +133,13 @@ export default function EpisodeCard({
               >
                 <Youtube size={14} /> Find on YouTube <ExternalLink size={11} />
               </a>
-              <AttachUrlButton
+              <AutoFillButton
                 campaign={campaign}
-                episode={ep}
-                onAttach={(url) => updateEpisode(ep.id, { youtubeUrl: url })}
+                episodeNum={ep.episodeNum}
+                title={ep.title}
+                want={["url"]}
+                label="Auto-fetch URL"
+                onApply={(fields) => updateEpisode(ep.id, fields)}
               />
             </div>
           )}

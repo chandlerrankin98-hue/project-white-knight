@@ -14,15 +14,23 @@ export/import gives you a manual cross-device backup.
 - **Episodes** — log episode number, title, date watched, a *"what happened"*
   summary (inline-editable), notes, and a YouTube link (embedded when set).
 - **Characters** — track PCs/NPCs per campaign with alive/dead/unknown status,
-  player, and a per-character timeline of events.
+  player, a freeform stats & skills block, and a per-character timeline of events.
 - **Timeline** — a campaign-wide, episode-ordered feed of character events.
 - **Graph** — an interactive force-directed graph of episode connections.
   Nodes are episodes (colored by campaign, sized by connection count); edges are
   connections (colored by type). Tap a node to inspect it and jump to it. Toggle
   between the active campaign and all campaigns.
-- **Auto-fetch YouTube URL** *(optional)* — finds an episode's official video via
-  a serverless proxy to the Anthropic API. Hidden automatically when no API key
-  is configured; the manual paste field always works.
+- **Auto-fill** *(optional)* — let AI do the lookups via serverless proxies to the
+  Anthropic API (web search grounded in the Critical Role wiki):
+  - **Episodes** — from the episode number, fetch a *"what happened"* summary and
+    the official YouTube URL (`/api/episode-info`).
+  - **Characters** — from the character name, fetch class/title, player, a stats &
+    skills block, and background notes (`/api/character-info`).
+
+  Both use **preview-then-accept**: suggestions are shown for review and only
+  applied on a tap, so nothing overwrites your text. Available in the add modals
+  and on each episode card / character detail view. Hidden automatically when no
+  API key is configured; manual entry always works.
 - **Export / Import** — back up or restore the whole dataset as JSON from the
   settings menu (⚙︎ in the header).
 
@@ -48,10 +56,10 @@ npm run build      # production build to dist/
 npm run preview    # serve the production build locally
 ```
 
-> Note: the **Auto-fetch URL** button relies on the `/api/find-episode-url`
+> Note: the **Auto-fill** button relies on the `/api/episode-info`
 > serverless function, which only runs on Vercel (or `vercel dev`). Under plain
 > `npm run dev` / `npm run preview` the button hides itself — everything else
-> works, and you can always paste a URL manually.
+> works, and you can always type the summary / paste a URL manually.
 
 ## Deploying to Vercel
 
@@ -59,7 +67,7 @@ npm run preview    # serve the production build locally
 2. *(Optional)* To enable **Auto-fetch URL**, add an environment variable in the
    Vercel project settings:
    - `ANTHROPIC_API_KEY` = your Anthropic API key
-3. Deploy. The static app is served from `dist/`, and `api/find-episode-url.js`
+3. Deploy. The static app is served from `dist/`, and `api/episode-info.js`
    runs as a serverless function.
 
 If you skip step 2, the app deploys and works fully — only the optional

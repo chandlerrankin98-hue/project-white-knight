@@ -3,6 +3,7 @@ import { Youtube } from "lucide-react";
 import { campaignById } from "../../constants.js";
 import { youtubeSearchUrl } from "../../utils/youtube.js";
 import { Modal, Field, inputClass } from "../ui.jsx";
+import AutoFillButton from "../AutoFillButton.jsx";
 
 export default function AddEpisodeModal({ campaign, onSave, onClose }) {
   const [episodeNum, setEpisodeNum] = useState("");
@@ -37,6 +38,20 @@ export default function AddEpisodeModal({ campaign, onSave, onClose }) {
           placeholder="A Stage Set"
         />
       </Field>
+
+      {/* Auto-fill summary + URL from just the episode number */}
+      <div className="mb-3 -mt-1">
+        <AutoFillButton
+          campaign={camp}
+          episodeNum={episodeNum}
+          title={title}
+          label="Auto-fill summary & URL"
+          onApply={({ summary: s, url }) => {
+            if (s != null) setSummary(s);
+            if (url != null) setYoutubeUrl(url);
+          }}
+        />
+      </div>
       <Field label="Date Watched">
         <input
           type="date"
