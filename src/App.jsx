@@ -10,6 +10,7 @@ import GraphView from "./views/GraphView.jsx";
 import AddEpisodeModal from "./components/modals/AddEpisodeModal.jsx";
 import AddCharacterModal from "./components/modals/AddCharacterModal.jsx";
 import AddEventModal from "./components/modals/AddEventModal.jsx";
+import SettingsMenu from "./components/SettingsMenu.jsx";
 
 export default function App() {
   const data = useTrackerData();
@@ -28,6 +29,8 @@ export default function App() {
     deleteEvent,
     addConnection,
     deleteConnection,
+    doExport,
+    doImport,
   } = data;
 
   const [activeCampaign, setActiveCampaign] = useState("c3");
@@ -80,10 +83,15 @@ export default function App() {
     <div className="min-h-screen bg-[#0f0a14] text-amber-50 font-body">
       {/* Header */}
       <header className="px-5 pt-7 pb-3 border-b border-amber-900/40 bg-gradient-to-b from-[#1a0f1f] to-[#0f0a14]">
-        <div className="flex items-center gap-2 text-amber-500/70 text-[10px] tracking-[0.3em] uppercase mb-1">
-          <span>◆</span> The Chronicler's Tome <span>◆</span>
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="flex items-center gap-2 text-amber-500/70 text-[10px] tracking-[0.3em] uppercase mb-1">
+              <span>◆</span> The Chronicler's Tome <span>◆</span>
+            </div>
+            <h1 className="text-2xl text-amber-100 tracking-wide font-display font-bold">Critical Role</h1>
+          </div>
+          <SettingsMenu onExport={doExport} onImport={doImport} />
         </div>
-        <h1 className="text-2xl text-amber-100 tracking-wide font-display font-bold">Critical Role</h1>
       </header>
 
       {/* Campaign pills */}
