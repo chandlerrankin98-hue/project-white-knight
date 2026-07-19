@@ -5,9 +5,15 @@ import { checkConfigured, fetchCharacterInfo } from "../utils/characterInfo.js";
 const FIELD_LABELS = {
   title: "Title / Class",
   player: "Player",
+  firstEpisode: "Introduced in",
+  introInfo: "Introduction (spoiler-safe)",
   stats: "Stats & skills",
+  spoilerInfo: "⚠ Later revelations (spoilers)",
   notes: "Background notes",
 };
+// Display order in the preview. spoilerRevealedEpisode rides along with
+// spoilerInfo rather than being shown on its own.
+const DISPLAY_ORDER = ["title", "player", "firstEpisode", "introInfo", "stats", "spoilerInfo", "notes"];
 
 // Auto-populates a character's fields from the /api/character-info proxy (web
 // search grounded in the Critical Role wiki). Preview-then-accept: fetched
@@ -17,7 +23,7 @@ const FIELD_LABELS = {
 export default function CharacterAutoFillButton({
   campaign,
   name,
-  want = ["title", "player", "stats", "notes"],
+  want = ["title", "player", "stats", "firstEpisode", "introInfo", "spoilerInfo", "spoilerRevealedEpisode"],
   onApply,
   label = "Auto-fill from name",
 }) {
@@ -59,10 +65,19 @@ export default function CharacterAutoFillButton({
     setPreview(null);
   };
 
-  // Fields that actually came back (non-null), in a stable order.
-  const filled = preview
-    ? ["title", "player", "stats", "notes"].filter((f) => preview[f])
-    : [];
+  // Build the value to store for a field. spoilerInfo carries its reveal episode
+  // along; firstEpisode/episode numbers are stored as strings to match the model.
+  const valueFor = (f) => {
+    if (f === "spoilerInfo") {
+      return { spoilerInfo: preview.spoilerInfo, spoilerRevealedEpisode: preview.spoilerRevealedEpisode ?? null };
+    }
+    if (f === "firstEpisode") return { firstEpisode: String(preview.firstEpisode) };
+    return { [f]: preview[f] };
+  };
+
+  // Fields that actually came back (non-null), in display order.
+  const filled = preview ? DISPLAY_ORDER.filter((f) => preview[f]) : [];
+  const acceptAllPayload = () => Object.assign({}, ...filled.map(valueFor));
 
   return (
     <div className="flex flex-col gap-1">
@@ -96,30 +111,37 @@ export default function CharacterAutoFillButton({
           </div>
 
           <div className="space-y-2">
-            {filled.map((f) => (
-              <div key={f}>
-                <div className="text-amber-400/70 text-[10px] tracking-widest uppercase font-display mb-0.5">
-                  {FIELD_LABELS[f]}
+            {filled.map((f) => {
+              const spoiler = f === "spoilerInfo";
+              const displayValue = f === "firstEpisode" ? `E${preview[f]}` : preview[f];
+              return (
+                <div key={f} className={spoiler ? "rounded border border-rose-500/30 bg-rose-500/5 p-2" : undefined}>
+                  <div className={`text-[10px] tracking-widest uppercase font-display mb-0.5 ${spoiler ? "text-rose-300/80" : "text-amber-400/70"}`}>
+                    {FIELD_LABELS[f]}
+                    {spoiler && preview.spoilerRevealedEpisode != null && (
+                      <span className="normal-case tracking-normal"> — revealed ~E{preview.spoilerRevealedEpisode}</span>
+                    )}
+                  </div>
+                  <p className="text-amber-100/85 whitespace-pre-wrap leading-relaxed">
+                    {displayValue}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => apply(valueFor(f))}
+                    className="mt-1 px-2 py-1 rounded border border-amber-500/40 text-amber-200 text-[11px] hover:bg-amber-500/10"
+                  >
+                    Accept {FIELD_LABELS[f].toLowerCase().replace("⚠ ", "")}
+                  </button>
                 </div>
-                <p className="text-amber-100/85 whitespace-pre-wrap leading-relaxed">
-                  {preview[f]}
-                </p>
-                <button
-                  type="button"
-                  onClick={() => apply({ [f]: preview[f] })}
-                  className="mt-1 px-2 py-1 rounded border border-amber-500/40 text-amber-200 text-[11px] hover:bg-amber-500/10"
-                >
-                  Accept {FIELD_LABELS[f].toLowerCase()}
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="flex flex-wrap gap-2 mt-3 pt-2 border-t border-amber-900/30">
             {filled.length > 1 && (
               <button
                 type="button"
-                onClick={() => apply(Object.fromEntries(filled.map((f) => [f, preview[f]])))}
+                onClick={() => apply(acceptAllPayload())}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-[#1a0f1f] text-xs font-semibold"
               >
                 <Check size={12} /> Accept all

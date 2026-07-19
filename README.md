@@ -15,6 +15,11 @@ export/import gives you a manual cross-device backup.
   summary (inline-editable), notes, and a YouTube link (embedded when set).
 - **Characters** — track PCs/NPCs per campaign with alive/dead/unknown status,
   player, a freeform stats & skills block, and a per-character timeline of events.
+  Character info is **spoiler-safe**: introduction-time details always show, while
+  later backstory/revelations stay hidden until your logged progress (the highest
+  episode number you've logged in that campaign) passes the reveal point — with a
+  "Reveal anyway" escape hatch. Characters can be auto-added as they're introduced
+  (from an episode's auto-fill, or a bulk "add characters up to E#" action).
 - **Timeline** — a campaign-wide, episode-ordered feed of character events.
 - **Graph** — an interactive force-directed graph of episode connections.
   Nodes are episodes (colored by campaign, sized by connection count); edges are
@@ -24,8 +29,13 @@ export/import gives you a manual cross-device backup.
   Anthropic API (web search grounded in the Critical Role wiki):
   - **Episodes** — from the episode number, fetch a *"what happened"* summary and
     the official YouTube URL (`/api/episode-info`).
+  - **Episodes** also fetch the official **title** and the **characters
+    introduced** in that episode (one-tap add).
   - **Characters** — from the character name, fetch class/title, player, a stats &
-    skills block, and background notes (`/api/character-info`).
+    skills block, and **spoiler-tiered** info: introduction-safe vs later
+    revelations (with a best-effort reveal episode) (`/api/character-info`).
+  - **Bulk** — add all characters introduced up to your current progress
+    (`/api/characters-in-campaign`).
 
   Both use **preview-then-accept**: suggestions are shown for review and only
   applied on a tap, so nothing overwrites your text. Available in the add modals

@@ -10,20 +10,29 @@ export default function AddCharacterModal({ campaign, onSave, onClose }) {
   const [status, setStatus] = useState("alive");
   const [stats, setStats] = useState("");
   const [notes, setNotes] = useState("");
+  // Tiered / metadata fields captured from auto-fill and carried into onSave
+  // (they have no dedicated inputs here; the detail view surfaces them).
+  const [aiExtra, setAiExtra] = useState({});
 
   const camp = campaignById(campaign);
 
   const submit = () => {
     if (!name) return;
-    onSave({ name, title, campaign, player, status, stats, notes });
+    onSave({ name, title, campaign, player, status, stats, notes, ...aiExtra });
   };
 
-  // Apply accepted auto-fill fields to the matching modal state.
+  // Apply accepted auto-fill fields to the matching modal state; carry the
+  // tiered spoiler fields in aiExtra so they persist on save.
   const applyAutoFill = (fields) => {
     if (fields.title != null) setTitle(fields.title);
     if (fields.player != null) setPlayer(fields.player);
     if (fields.stats != null) setStats(fields.stats);
     if (fields.notes != null) setNotes(fields.notes);
+    const extra = {};
+    for (const k of ["firstEpisode", "introInfo", "spoilerInfo", "spoilerRevealedEpisode"]) {
+      if (fields[k] != null) extra[k] = fields[k];
+    }
+    if (Object.keys(extra).length) setAiExtra((prev) => ({ ...prev, ...extra }));
   };
 
   return (

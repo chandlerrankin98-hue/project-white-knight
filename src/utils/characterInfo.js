@@ -20,7 +20,11 @@ export async function checkConfigured() {
 // Fetch auto-fill data for a character. `want` selects which fields to request.
 // Returns { title, player, stats, notes } (any may be null). Throws on
 // network/HTTP error so the caller can surface a message.
-export async function fetchCharacterInfo({ campaign, name, want = ["title", "player", "stats", "notes"] }) {
+export async function fetchCharacterInfo({
+  campaign,
+  name,
+  want = ["title", "player", "stats", "firstEpisode", "introInfo", "spoilerInfo", "spoilerRevealedEpisode"],
+}) {
   const r = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -32,6 +36,10 @@ export async function fetchCharacterInfo({ campaign, name, want = ["title", "pla
     title: d.title ?? null,
     player: d.player ?? null,
     stats: d.stats ?? null,
+    firstEpisode: d.firstEpisode ?? null,
+    introInfo: d.introInfo ?? null,
+    spoilerInfo: d.spoilerInfo ?? null,
+    spoilerRevealedEpisode: d.spoilerRevealedEpisode ?? null,
     notes: d.notes ?? null,
   };
 }

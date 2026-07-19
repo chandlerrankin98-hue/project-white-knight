@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, BookOpen, Users, Clock, Share2 } from "lucide-react";
 import { CAMPAIGNS, campaignById } from "./constants.js";
+import { campaignProgress } from "./utils/progress.js";
 import { useTrackerData } from "./hooks/useTrackerData.js";
 import EpisodesView from "./views/EpisodesView.jsx";
 import CharactersView from "./views/CharactersView.jsx";
@@ -51,6 +52,30 @@ export default function App() {
   );
 
   const currentCamp = campaignById(activeCampaign);
+  // How far the viewer has watched this campaign (highest logged episode #).
+  const progress = campaignProgress(episodes, activeCampaign);
+
+  // Add characters surfaced by auto-fill (from an episode or the bulk action),
+  // deduped by name within the active campaign so re-running doesn't duplicate.
+  const addIntroducedCharacters = (chars) => {
+    const existing = new Set(
+      characters
+        .filter((c) => c.campaign === activeCampaign)
+        .map((c) => c.name.trim().toLowerCase())
+    );
+    chars.forEach((c) => {
+      const key = (c.name || "").trim().toLowerCase();
+      if (!key || existing.has(key)) return;
+      existing.add(key);
+      addCharacter({
+        name: c.name.trim(),
+        campaign: activeCampaign,
+        status: "alive",
+        firstEpisode: c.firstEpisode != null ? String(c.firstEpisode) : "",
+        introInfo: c.introInfo || "",
+      });
+    });
+  };
 
   // Jump from the graph to an episode: switch to its campaign, open the
   // Episodes tab, and expand that episode.
@@ -175,6 +200,7 @@ export default function App() {
             allEpisodes={episodes}
             addConnection={addConnection}
             deleteConnection={deleteConnection}
+            onAddCharacters={addIntroducedCharacters}
           />
         )}
 
@@ -183,6 +209,9 @@ export default function App() {
             characters={campCharacters}
             setSelectedChar={setSelectedChar}
             deleteCharacter={handleDeleteCharacter}
+            campaign={currentCamp}
+            progress={progress}
+            onAddCharacters={addIntroducedCharacters}
           />
         )}
 
@@ -194,6 +223,7 @@ export default function App() {
             onBack={() => setSelectedChar(null)}
             onDeleteEvent={deleteEvent}
             updateCharacter={updateCharacter}
+            progress={progress}
           />
         )}
 
@@ -238,6 +268,7 @@ export default function App() {
           campaign={activeCampaign}
           onSave={handleAddEpisode}
           onClose={() => setShowAdd(null)}
+          onAddCharacters={addIntroducedCharacters}
         />
       )}
       {showAdd === "character" && (

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { loadData, saveData, parseImport, exportData } from "../storage.js";
+import { loadData, saveData, parseImport, exportData, CHARACTER_DEFAULTS } from "../storage.js";
 
 // Monotonic-ish unique id. Date.now() alone can collide when two records are
 // created in the same millisecond (e.g. a batch import), so we mix in a counter.
@@ -60,7 +60,7 @@ export function useTrackerData() {
 
   // --- Characters ---
   const addCharacter = useCallback((fields) => {
-    const character = { id: newId(), stats: "", ...fields };
+    const character = { id: newId(), ...CHARACTER_DEFAULTS, ...fields };
     setData((d) => ({ ...d, characters: [...d.characters, character] }));
     return character;
   }, []);

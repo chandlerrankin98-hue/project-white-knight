@@ -49,12 +49,19 @@ export default async function handler(req, res) {
     if (!episodeNum) {
       return res.status(400).json({ error: "episodeNum is required" });
     }
-    const wants = Array.isArray(want) && want.length ? want : ["url", "summary"];
+    const wants = Array.isArray(want) && want.length ? want : ["url", "summary", "title", "characters"];
     const wantUrl = wants.includes("url");
     const wantSummary = wants.includes("summary");
+    const wantTitle = wants.includes("title");
+    const wantCharacters = wants.includes("characters");
 
     const searchName = CAMPAIGN_SEARCH_NAMES[campaign] || "Critical Role";
     const tasks = [];
+    if (wantTitle) {
+      tasks.push(
+        `- "title": the official title of the episode (without the "Episode N:" prefix), or null if unknown.`
+      );
+    }
     if (wantSummary) {
       tasks.push(
         `- "summary": a concise 3-5 sentence recap of what happened in the episode (key plot events, no meta commentary).`
@@ -63,6 +70,11 @@ export default async function handler(req, res) {
     if (wantUrl) {
       tasks.push(
         `- "url": the official full-episode YouTube URL (https://www.youtube.com/watch?v=...), or null if you can't find a confident match.`
+      );
+    }
+    if (wantCharacters) {
+      tasks.push(
+        `- "characters": an array of the notable characters who FIRST appear / are introduced in this specific episode. Each item is {"name": string, "introInfo": string} where introInfo is a one-sentence spoiler-safe description of who they appear to be at introduction (no later plot twists). Empty array if none or unknown.`
       );
     }
 
@@ -95,7 +107,9 @@ If a field can't be determined confidently, set it to null.`;
     if (!response.ok) {
       const detail = await response.text();
       console.error("Anthropic API error:", response.status, detail);
-      return res.status(502).json({ url: null, summary: null, error: "Upstream error" });
+      return res
+        .status(502)
+        .json({ url: null, summary: null, title: null, characters: [], error: "Upstream error" });
     }
 
     const data = await response.json();
@@ -108,12 +122,23 @@ If a field can't be determined confidently, set it to null.`;
     // Primary: parse the JSON object the model was asked to return.
     let url = null;
     let summary = null;
+    let epTitle = null;
+    let characters = [];
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
         const parsed = JSON.parse(jsonMatch[0]);
         if (typeof parsed.url === "string") url = parsed.url;
         if (typeof parsed.summary === "string") summary = parsed.summary.trim();
+        if (typeof parsed.title === "string") epTitle = parsed.title.trim();
+        if (Array.isArray(parsed.characters)) {
+          characters = parsed.characters
+            .filter((c) => c && typeof c.name === "string" && c.name.trim())
+            .map((c) => ({
+              name: c.name.trim(),
+              introInfo: typeof c.introInfo === "string" ? c.introInfo.trim() : "",
+            }));
+        }
       } catch {
         // fall through to regex fallback
       }
@@ -130,9 +155,13 @@ If a field can't be determined confidently, set it to null.`;
     return res.status(200).json({
       url: wantUrl ? url : null,
       summary: wantSummary ? summary : null,
+      title: wantTitle ? epTitle : null,
+      characters: wantCharacters ? characters : [],
     });
   } catch (err) {
     console.error("episode-info failed:", err);
-    return res.status(500).json({ url: null, summary: null, error: "Internal error" });
+    return res
+      .status(500)
+      .json({ url: null, summary: null, title: null, characters: [], error: "Internal error" });
   }
 }

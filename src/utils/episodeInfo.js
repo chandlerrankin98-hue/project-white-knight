@@ -19,7 +19,12 @@ export async function checkConfigured() {
 // Fetch auto-fill data for an episode. `want` selects which fields to request.
 // Returns { url, summary } (either may be null). Throws on network/HTTP error
 // so the caller can surface a message.
-export async function fetchEpisodeInfo({ campaign, episodeNum, title, want = ["url", "summary"] }) {
+export async function fetchEpisodeInfo({
+  campaign,
+  episodeNum,
+  title,
+  want = ["url", "summary", "title", "characters"],
+}) {
   const r = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -27,5 +32,10 @@ export async function fetchEpisodeInfo({ campaign, episodeNum, title, want = ["u
   });
   if (!r.ok) throw new Error("Auto-fill request failed.");
   const d = await r.json();
-  return { url: d.url ?? null, summary: d.summary ?? null };
+  return {
+    url: d.url ?? null,
+    summary: d.summary ?? null,
+    title: d.title ?? null,
+    characters: Array.isArray(d.characters) ? d.characters : [],
+  };
 }

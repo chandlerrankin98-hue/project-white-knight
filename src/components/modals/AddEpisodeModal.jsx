@@ -5,7 +5,7 @@ import { youtubeSearchUrl } from "../../utils/youtube.js";
 import { Modal, Field, inputClass } from "../ui.jsx";
 import AutoFillButton from "../AutoFillButton.jsx";
 
-export default function AddEpisodeModal({ campaign, onSave, onClose }) {
+export default function AddEpisodeModal({ campaign, onSave, onClose, onAddCharacters }) {
   const [episodeNum, setEpisodeNum] = useState("");
   const [title, setTitle] = useState("");
   const [dateWatched, setDateWatched] = useState(new Date().toISOString().slice(0, 10));
@@ -39,17 +39,19 @@ export default function AddEpisodeModal({ campaign, onSave, onClose }) {
         />
       </Field>
 
-      {/* Auto-fill summary + URL from just the episode number */}
+      {/* Auto-fill title/summary/URL + suggest characters from the episode # */}
       <div className="mb-3 -mt-1">
         <AutoFillButton
           campaign={camp}
           episodeNum={episodeNum}
           title={title}
-          label="Auto-fill summary & URL"
-          onApply={({ summary: s, url }) => {
+          label="Auto-fill from episode #"
+          onApply={({ title: t, summary: s, url }) => {
+            if (t != null) setTitle(t);
             if (s != null) setSummary(s);
             if (url != null) setYoutubeUrl(url);
           }}
+          onAddCharacters={onAddCharacters}
         />
       </div>
       <Field label="Date Watched">
