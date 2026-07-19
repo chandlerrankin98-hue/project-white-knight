@@ -41,6 +41,18 @@ export/import gives you a manual cross-device backup.
     other logged episodes; review the suggestions and add the ones you want
     (`/api/episode-connections`). Only suggests links to episodes you've already
     logged, so nothing spoils.
+  - **One-tap logging** — in the Add Episode modal, "Auto-fill everything"
+    populates title, summary, URL, and stages introduced characters in one shot.
+    After Save, the app automatically scans for connections in both directions
+    (new episode ↔ every logged peer) so the graph builds itself. This runs in
+    the background with a small progress toast; opt out under Settings.
+  - **Batch add** — "Log a range of episodes…" (link at the top of Episodes)
+    auto-fills a range like E45–E52 in parallel, shows one combined preview,
+    and applies the whole batch (plus one connection-scan pass) on accept.
+    Episodes you've already logged are skipped automatically.
+  - **Graph readability** — multi-edge pairs fan out with curved links, the
+    connection-type legend is clickable to filter, selecting a node dims
+    non-neighbors, and there's a "Fit" button to reframe.
 
   Both use **preview-then-accept**: suggestions are shown for review and only
   applied on a tap, so nothing overwrites your text. Available in the add modals

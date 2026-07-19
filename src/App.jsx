@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, BookOpen, Users, Clock, Share2 } from "lucide-react";
 import { CAMPAIGNS, campaignById } from "./constants.js";
 import { campaignProgress } from "./utils/progress.js";
+import { scanConnectionsForNewEpisodes } from "./utils/scanConnections.js";
 import { useTrackerData } from "./hooks/useTrackerData.js";
 import EpisodesView from "./views/EpisodesView.jsx";
 import CharactersView from "./views/CharactersView.jsx";
@@ -9,6 +10,7 @@ import CharacterDetail from "./views/CharacterDetail.jsx";
 import TimelineView from "./views/TimelineView.jsx";
 import GraphView from "./views/GraphView.jsx";
 import AddEpisodeModal from "./components/modals/AddEpisodeModal.jsx";
+import AddEpisodesBatchModal from "./components/modals/AddEpisodesBatchModal.jsx";
 import AddCharacterModal from "./components/modals/AddCharacterModal.jsx";
 import AddEventModal from "./components/modals/AddEventModal.jsx";
 import SettingsMenu from "./components/SettingsMenu.jsx";
@@ -40,6 +42,18 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(null);
   const [selectedChar, setSelectedChar] = useState(null);
   const [expandedEp, setExpandedEp] = useState(null);
+  // Toast for the async post-save connection scan.
+  const [scanStatus, setScanStatus] = useState(null); // null | { done, total, added? }
+  // User preference (persisted in localStorage) — auto-run the connection scan
+  // when an episode is saved. Default on when the proxy is likely configured.
+  const [autoScan, setAutoScan] = useState(() => {
+    const v = localStorage.getItem("cr-auto-scan");
+    return v == null ? true : v === "1";
+  });
+  const setAutoScanPersisted = (v) => {
+    setAutoScan(v);
+    localStorage.setItem("cr-auto-scan", v ? "1" : "0");
+  };
 
   // Filter everything by active campaign
   const campEpisodes = episodes.filter((e) => e.campaign === activeCampaign);
@@ -88,8 +102,38 @@ export default function App() {
     setExpandedEp(epId);
   };
 
+  // Kick off the bidirectional connection scan for a set of newly-added
+  // episodes. Runs in the background with a small progress toast so it never
+  // blocks the UI.
+  const runConnectionScan = async (newEps) => {
+    if (!autoScan || !newEps.length) return;
+    try {
+      // Snapshot: peers = all logged episodes (incl. the new ones just added
+      // so batch-mates connect to each other).
+      const allNow = [...episodes, ...newEps];
+      const added = await scanConnectionsForNewEpisodes({
+        newEpisodes: newEps,
+        allEpisodes: allNow,
+        existingConnections: connections,
+        addConnection,
+        onProgress: (done, total) => setScanStatus({ done, total }),
+      });
+      setScanStatus({ done: 1, total: 1, added });
+      // Auto-hide the "Added N" toast a few seconds later.
+      setTimeout(() => setScanStatus(null), 4000);
+    } catch (err) {
+      console.error("connection scan failed:", err);
+      setScanStatus(null);
+    }
+  };
+
   // Wrap CRUD so modals close after saving, mirroring the original component.
-  const handleAddEpisode = (ep) => { addEpisode(ep); setShowAdd(null); };
+  const handleAddEpisode = (ep) => {
+    const created = addEpisode(ep);
+    setShowAdd(null);
+    // Fire-and-forget the connection scan (does nothing if disabled).
+    runConnectionScan([created]);
+  };
   const handleAddCharacter = (ch) => { addCharacter(ch); setShowAdd(null); };
   const handleAddEvent = (ev) => { addEvent(ev); setShowAdd(null); };
   const handleDeleteCharacter = (id) => {
@@ -116,8 +160,20 @@ export default function App() {
             </div>
             <h1 className="text-2xl text-amber-100 tracking-wide font-display font-bold">Critical Role</h1>
           </div>
-          <SettingsMenu onExport={doExport} onImport={doImport} />
+          <SettingsMenu
+            onExport={doExport}
+            onImport={doImport}
+            autoScan={autoScan}
+            onAutoScanChange={setAutoScanPersisted}
+          />
         </div>
+        {scanStatus && (
+          <div className="mt-2 text-amber-300/80 text-xs font-mono" role="status">
+            {scanStatus.added != null
+              ? `✓ Added ${scanStatus.added} connection${scanStatus.added === 1 ? "" : "s"}`
+              : `Building connections… ${scanStatus.done}/${scanStatus.total}`}
+          </div>
+        )}
       </header>
 
       {/* Campaign pills */}
@@ -189,6 +245,16 @@ export default function App() {
 
       <main className="px-4 py-5 pb-24">
         {view === "episodes" && (
+          <>
+            <div className="mb-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAdd("episode-range")}
+                className="text-amber-300/70 hover:text-amber-200 text-xs underline underline-offset-2"
+              >
+                Log a range of episodes…
+              </button>
+            </div>
           <EpisodesView
             campaign={currentCamp}
             episodes={campEpisodes}
@@ -202,6 +268,7 @@ export default function App() {
             deleteConnection={deleteConnection}
             onAddCharacters={addIntroducedCharacters}
           />
+          </>
         )}
 
         {view === "characters" && !selectedChar && (
@@ -293,6 +360,37 @@ export default function App() {
           prefilledCharId={showAdd.replace("event-for-", "")}
           onSave={handleAddEvent}
           onClose={() => setShowAdd(null)}
+        />
+      )}
+      {showAdd === "episode-range" && (
+        <AddEpisodesBatchModal
+          campaign={activeCampaign}
+          existingEpisodeNums={campEpisodes.map((e) => e.episodeNum)}
+          onClose={() => setShowAdd(null)}
+          onCommit={(items) => {
+            // Create each episode, queue characters per-episode (deduped by
+            // addIntroducedCharacters), then trigger the scan pass across the
+            // whole batch at once.
+            const created = items.map((it) => {
+              const ep = addEpisode({
+                campaign: activeCampaign,
+                episodeNum: it.episodeNum,
+                title: it.title,
+                dateWatched: new Date().toISOString().slice(0, 10),
+                summary: it.summary,
+                notes: "",
+                youtubeUrl: it.youtubeUrl,
+              });
+              if (it.characters?.length) {
+                addIntroducedCharacters(
+                  it.characters.map((c) => ({ ...c, firstEpisode: it.episodeNum }))
+                );
+              }
+              return ep;
+            });
+            setShowAdd(null);
+            runConnectionScan(created);
+          }}
         />
       )}
     </div>

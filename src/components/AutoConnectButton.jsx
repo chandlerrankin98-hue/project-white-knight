@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Sparkles, Loader, Check, X } from "lucide-react";
 import { connectionTypeById, campaignById } from "../constants.js";
 import { checkConfigured, fetchSuggestedConnections } from "../utils/episodeConnections.js";
+import { applyConnections } from "../utils/applyConnections.js";
 
 function TypeBadge({ typeId }) {
   const t = connectionTypeById(typeId);
@@ -95,22 +96,10 @@ export default function AutoConnectButton({
     });
 
   const addPicked = () => {
-    // Dedup safeguard: skip suggestions that match an existing connection by
-    // from+to+type. Users may auto-detect multiple times; nothing should double.
-    const alreadyExists = (to, type) =>
-      existingConnections.some(
-        (c) => c.fromEpisodeId === sourceEp.id && c.toEpisodeId === to && c.type === type
-      );
-    suggestions.forEach((s, i) => {
-      if (!picked.has(i)) return;
-      if (alreadyExists(s.toEpisodeId, s.type)) return;
-      addConnection({
-        fromEpisodeId: sourceEp.id,
-        toEpisodeId: s.toEpisodeId,
-        type: s.type,
-        note: s.note || "",
-      });
-    });
+    const chosen = suggestions
+      .filter((_, i) => picked.has(i))
+      .map((s) => ({ fromEpisodeId: sourceEp.id, ...s }));
+    applyConnections(existingConnections, chosen, addConnection);
     setSuggestions(null);
   };
 
