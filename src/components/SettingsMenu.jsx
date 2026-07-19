@@ -4,7 +4,7 @@ import { Settings, Download, Upload } from "lucide-react";
 // Small header menu for whole-dataset operations: export the tracker to a JSON
 // file, or import one back (the cross-device safety net). Import errors surface
 // inline so a bad file can't silently wipe data.
-export default function SettingsMenu({ onExport, onImport }) {
+export default function SettingsMenu({ onExport, onImport, autoScan, onAutoScanChange }) {
   const [open, setOpen] = useState(false);
   const [error, setError] = useState(null);
   const fileRef = useRef(null);
@@ -61,6 +61,25 @@ export default function SettingsMenu({ onExport, onImport }) {
             <p className="text-amber-200/40 text-[10px] px-2 mt-1 leading-snug">
               Importing replaces all current data.
             </p>
+
+            {onAutoScanChange && (
+              <div className="mt-2 pt-2 border-t border-amber-900/30">
+                <label className="flex items-start gap-2 px-2 py-1.5 rounded hover:bg-amber-500/10 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={!!autoScan}
+                    onChange={(e) => onAutoScanChange(e.target.checked)}
+                    className="mt-0.5 accent-amber-500"
+                  />
+                  <span className="text-amber-100/90 text-sm leading-tight">
+                    Auto-detect connections after saving an episode
+                    <span className="block text-amber-200/40 text-[10px]">
+                      Uses the AI proxy to link the new episode to your other logged episodes.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
           </div>
         </>
       )}

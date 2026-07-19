@@ -13,9 +13,14 @@ export default function AutoFillButton({
   title,
   want = ["url", "summary", "title", "characters"],
   onApply,
-  onAddCharacters, // optional: (chars[]) => void — enables the "introduced" list
+  onAddCharacters, // optional: (chars[]) => void — adds characters IMMEDIATELY
+  onQueueCharacters, // optional: (chars[]) => void — stages characters for the parent to apply on Save
   label = "Auto-fill",
 }) {
+  // Where should accepted characters go? Prefer the queue prop when present so
+  // the parent can defer the add until Save (used in AddEpisodeModal to avoid
+  // creating characters if the user cancels the modal).
+  const sinkForChars = onQueueCharacters || onAddCharacters;
   const [available, setAvailable] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -56,17 +61,19 @@ export default function AutoFillButton({
   };
 
   const addChar = (c) => {
-    onAddCharacters?.([{ ...c, firstEpisode: episodeNum }]);
+    sinkForChars?.([{ ...c, firstEpisode: episodeNum }]);
     setAddedChars((prev) => new Set(prev).add(c.name));
   };
   const addAllChars = () => {
     const remaining = (preview.characters || []).filter((c) => !addedChars.has(c.name));
-    if (remaining.length) onAddCharacters?.(remaining.map((c) => ({ ...c, firstEpisode: episodeNum })));
+    if (remaining.length) sinkForChars?.(remaining.map((c) => ({ ...c, firstEpisode: episodeNum })));
     setAddedChars(new Set((preview.characters || []).map((c) => c.name)));
   };
 
-  const chars = onAddCharacters ? preview?.characters || [] : [];
-  // "Accept all" only covers the text fields, not the character adds.
+  const chars = sinkForChars ? preview?.characters || [] : [];
+  const anyUnaddedChars = chars.some((c) => !addedChars.has(c.name));
+
+  // Text fields the AI returned (only non-empty ones).
   const textFields = preview
     ? Object.fromEntries(
         [["title", preview.title], ["summary", preview.summary], ["url", preview.url]].filter(
@@ -75,6 +82,13 @@ export default function AutoFillButton({
       )
     : {};
   const textFieldCount = Object.keys(textFields).length;
+
+  // Combined "Accept everything" — text fields AND queue remaining characters.
+  const acceptEverything = () => {
+    if (textFieldCount) onApply(textFields);
+    if (anyUnaddedChars) addAllChars();
+    setPreview(null);
+  };
 
   return (
     <div className="flex flex-col gap-1">
@@ -130,7 +144,16 @@ export default function AutoFillButton({
           )}
 
           <div className="flex flex-wrap gap-2 mt-1">
-            {textFieldCount > 1 && (
+            {(textFieldCount > 0 && chars.length > 0) && (
+              <button
+                type="button"
+                onClick={acceptEverything}
+                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-[#1a0f1f] text-xs font-semibold"
+              >
+                <Check size={12} /> Accept everything
+              </button>
+            )}
+            {(textFieldCount > 1 && !chars.length) && (
               <button
                 type="button"
                 onClick={() => apply(textFields)}

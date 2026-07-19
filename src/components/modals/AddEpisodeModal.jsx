@@ -12,12 +12,35 @@ export default function AddEpisodeModal({ campaign, onSave, onClose, onAddCharac
   const [summary, setSummary] = useState("");
   const [notes, setNotes] = useState("");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  // Characters surfaced by auto-fill get STAGED here (deduped by name) and are
+  // only added when the user hits Save, so closing the modal cancels cleanly.
+  const [pendingCharacters, setPendingCharacters] = useState([]);
 
   const camp = campaignById(campaign);
+
+  const queueCharacters = (chars) => {
+    setPendingCharacters((prev) => {
+      const seen = new Set(prev.map((c) => c.name.trim().toLowerCase()));
+      const next = [...prev];
+      for (const c of chars) {
+        const key = (c.name || "").trim().toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        next.push(c);
+      }
+      return next;
+    });
+  };
 
   const submit = () => {
     if (!episodeNum || !title) return;
     onSave({ campaign, episodeNum, title, dateWatched, summary, notes, youtubeUrl });
+    // Apply any staged characters after the parent has processed onSave. The
+    // parent is expected to close the modal; we call this synchronously here
+    // and the parent's addCharacter dedup guards against races.
+    if (pendingCharacters.length && onAddCharacters) {
+      onAddCharacters(pendingCharacters);
+    }
   };
 
   return (
@@ -45,14 +68,19 @@ export default function AddEpisodeModal({ campaign, onSave, onClose, onAddCharac
           campaign={camp}
           episodeNum={episodeNum}
           title={title}
-          label="Auto-fill from episode #"
+          label="Auto-fill everything"
           onApply={({ title: t, summary: s, url }) => {
             if (t != null) setTitle(t);
             if (s != null) setSummary(s);
             if (url != null) setYoutubeUrl(url);
           }}
-          onAddCharacters={onAddCharacters}
+          onQueueCharacters={queueCharacters}
         />
+        {pendingCharacters.length > 0 && (
+          <p className="mt-1 text-amber-300/70 text-[11px]">
+            {pendingCharacters.length} character{pendingCharacters.length === 1 ? "" : "s"} queued — added on Save.
+          </p>
+        )}
       </div>
       <Field label="Date Watched">
         <input
