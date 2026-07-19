@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Plus, Trash2, ArrowRight, ArrowLeft } from "lucide-react";
 import { connectionTypeById, campaignById } from "../constants.js";
 import AddConnectionModal from "./modals/AddConnectionModal.jsx";
+import AutoConnectButton from "./AutoConnectButton.jsx";
 
 function TypeBadge({ typeId }) {
   const t = connectionTypeById(typeId);
@@ -107,6 +108,13 @@ export default function ConnectionsPanel({ ep, connections, allEpisodes, addConn
           )}
         </div>
       )}
+
+      <AutoConnectButton
+        sourceEp={ep}
+        allEpisodes={allEpisodes}
+        existingConnections={connections}
+        addConnection={addConnection}
+      />
 
       {showAdd && (
         <AddConnectionModal
