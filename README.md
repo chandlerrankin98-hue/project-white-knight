@@ -64,11 +64,14 @@ npm run preview    # serve the production build locally
 ## Deploying to Vercel
 
 1. Push this repo to GitHub and import it into Vercel (it auto-detects Vite).
-2. *(Optional)* To enable **Auto-fetch URL**, add an environment variable in the
+2. *(Optional)* To enable **Auto-fill**, add environment variables in the
    Vercel project settings:
-   - `ANTHROPIC_API_KEY` = your Anthropic API key
-3. Deploy. The static app is served from `dist/`, and `api/episode-info.js`
-   runs as a serverless function.
+   - `ANTHROPIC_API_KEY` = your Anthropic API key *(required for auto-fill)*
+   - `ANTHROPIC_MODEL` = *(optional)* override the model the serverless functions
+     use. Defaults to `claude-sonnet-5`; set this if that model isn't available to
+     your account (a `404 model: …` error in the Vercel logs means you need to).
+3. Deploy. The static app is served from `dist/`, and the `api/*.js` files
+   run as serverless functions.
 
 If you skip step 2, the app deploys and works fully — only the optional
 auto-fetch feature stays hidden.

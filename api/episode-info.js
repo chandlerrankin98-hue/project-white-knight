@@ -21,6 +21,10 @@ const CAMPAIGN_SEARCH_NAMES = {
 // Primary grounding source; the deferred character endpoint reuses this.
 const WIKI_BASE = "https://criticalrole.fandom.com/wiki/Critical_Role_Wiki";
 
+// Model to use. Overridable via env var so a retired model ID can be swapped
+// without a code change. Default is a current, generally-available model.
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
+
 const YT_URL_RE =
   /https?:\/\/(?:www\.)?(?:youtube\.com\/watch\?v=|youtu\.be\/)[\w-]+/;
 
@@ -81,7 +85,7 @@ If a field can't be determined confidently, set it to null.`;
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-20250514",
+        model: MODEL,
         max_tokens: 1500,
         messages: [{ role: "user", content: prompt }],
         tools: [{ type: "web_search_20250305", name: "web_search" }],
