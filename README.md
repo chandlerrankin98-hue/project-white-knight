@@ -36,6 +36,11 @@ export/import gives you a manual cross-device backup.
     revelations (with a best-effort reveal episode) (`/api/character-info`).
   - **Bulk** — add all characters introduced up to your current progress
     (`/api/characters-in-campaign`).
+  - **Connections** — from any episode card, auto-detect its connections
+    (foreshadows, callbacks, plot threads, character arcs, locations) to your
+    other logged episodes; review the suggestions and add the ones you want
+    (`/api/episode-connections`). Only suggests links to episodes you've already
+    logged, so nothing spoils.
 
   Both use **preview-then-accept**: suggestions are shown for review and only
   applied on a tap, so nothing overwrites your text. Available in the add modals
