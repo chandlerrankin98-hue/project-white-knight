@@ -1,13 +1,26 @@
-import { Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Trash2, Lock, Eye } from "lucide-react";
 import { statusById, campaignById } from "../constants.js";
 import { EmptyState } from "../components/ui.jsx";
+import { isSpoilerRevealed } from "../utils/progress.js";
 import CharacterAutoFillButton from "../components/CharacterAutoFillButton.jsx";
 
-export default function CharacterDetail({ character, events, episodes, onBack, onDeleteEvent, updateCharacter }) {
+export default function CharacterDetail({
+  character,
+  events,
+  episodes,
+  onBack,
+  onDeleteEvent,
+  updateCharacter,
+  progress = 0,
+}) {
+  const [revealOverride, setRevealOverride] = useState(false);
   if (!character) return null;
   const status = statusById(character.status) || statusById("alive");
   const StatusIcon = status.icon;
   const campaign = campaignById(character.campaign);
+
+  const spoilerRevealed = isSpoilerRevealed(character, progress) || revealOverride;
 
   const sortedEvents = [...events].sort((a, b) => {
     const epA = episodes.find((e) => e.id === a.episodeId);
@@ -30,8 +43,54 @@ export default function CharacterDetail({ character, events, episodes, onBack, o
         </div>
         <div className="text-amber-200/60 text-sm mt-2">
           {campaign?.name} {character.player && `· ${character.player}`}
+          {character.firstEpisode && (
+            <span className="font-mono text-amber-400/60"> · Introduced E{character.firstEpisode}</span>
+          )}
         </div>
         {character.notes && <p className="text-amber-100/85 mt-3">{character.notes}</p>}
+
+        {/* Introduction — spoiler-safe, always shown */}
+        {character.introInfo && (
+          <div className="mt-4 pt-3 border-t border-amber-900/30">
+            <div className="text-amber-400/80 text-[11px] tracking-[0.2em] uppercase font-display mb-1">
+              Introduction
+            </div>
+            <p className="text-amber-100/85 leading-relaxed">{character.introInfo}</p>
+          </div>
+        )}
+
+        {/* Later revelations — spoiler tier, gated by campaign progress */}
+        {character.spoilerInfo && (
+          <div className="mt-4 pt-3 border-t border-amber-900/30">
+            <div className="text-amber-400/80 text-[11px] tracking-[0.2em] uppercase font-display mb-1">
+              Later revelations
+            </div>
+            {spoilerRevealed ? (
+              <p className="text-amber-100/85 leading-relaxed whitespace-pre-wrap">
+                {character.spoilerInfo}
+              </p>
+            ) : (
+              <div className="rounded-lg border border-amber-900/40 bg-[#0f0a14] p-3">
+                <div className="flex items-center gap-1.5 text-amber-300/70 text-sm">
+                  <Lock size={14} /> Hidden to avoid spoilers
+                </div>
+                <p className="text-amber-200/50 text-xs mt-1">
+                  You're on E{progress} of {campaign?.name}
+                  {character.spoilerRevealedEpisode != null
+                    ? ` · revealed around E${character.spoilerRevealedEpisode}`
+                    : " · reveal point unknown"}
+                  .
+                </p>
+                <button
+                  onClick={() => setRevealOverride(true)}
+                  className="mt-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-amber-500/40 text-amber-200 text-xs hover:bg-amber-500/10"
+                >
+                  <Eye size={12} /> Reveal anyway
+                </button>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Stats & skills block */}
         {character.stats && (

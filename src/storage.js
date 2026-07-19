@@ -6,7 +6,17 @@
 // blobs forward as the data model grows.
 
 const STORAGE_KEY = "cr-tracker-data";
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
+
+// Default fields for a character. Spread FIRST so existing values win, letting
+// migrations and creation backfill only what's missing.
+export const CHARACTER_DEFAULTS = {
+  stats: "",
+  firstEpisode: "",
+  introInfo: "",
+  spoilerInfo: "",
+  spoilerRevealedEpisode: null,
+};
 
 export function emptyData() {
   return {
@@ -36,11 +46,13 @@ export function migrate(raw) {
   }
 
   // Backfill any missing top-level arrays and per-record fields defensively,
-  // regardless of the version we started from. v3 adds `stats` to characters.
+  // regardless of the version we started from. v3 added `stats`; v4 adds the
+  // tiered spoiler fields (firstEpisode / introInfo / spoilerInfo /
+  // spoilerRevealedEpisode) to characters.
   return {
     version: CURRENT_VERSION,
     episodes: (data.episodes || []).map((ep) => ({ summary: "", ...ep })),
-    characters: (data.characters || []).map((ch) => ({ stats: "", ...ch })),
+    characters: (data.characters || []).map((ch) => ({ ...CHARACTER_DEFAULTS, ...ch })),
     events: data.events || [],
     connections: data.connections || [],
   };

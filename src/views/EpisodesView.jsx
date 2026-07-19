@@ -12,6 +12,7 @@ export default function EpisodesView({
   allEpisodes,
   addConnection,
   deleteConnection,
+  onAddCharacters,
 }) {
   if (episodes.length === 0) {
     return <EmptyState text={`No episodes in ${campaign.name} yet. Tap + to log one.`} />;
@@ -36,6 +37,7 @@ export default function EpisodesView({
           allEpisodes={allEpisodes}
           addConnection={addConnection}
           deleteConnection={deleteConnection}
+          onAddCharacters={onAddCharacters}
         />
       ))}
     </div>

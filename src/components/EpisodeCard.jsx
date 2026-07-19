@@ -17,6 +17,7 @@ export default function EpisodeCard({
   allEpisodes,
   addConnection,
   deleteConnection,
+  onAddCharacters,
 }) {
   const videoId = extractYouTubeId(ep.youtubeUrl);
   const [editingSummary, setEditingSummary] = useState(false);
@@ -103,8 +104,9 @@ export default function EpisodeCard({
                   campaign={campaign}
                   episodeNum={ep.episodeNum}
                   title={ep.title}
-                  label={ep.summary ? "Auto-fill again" : "Auto-fill summary & URL"}
+                  label={ep.summary ? "Auto-fill again" : "Auto-fill from episode #"}
                   onApply={(fields) => updateEpisode(ep.id, fields)}
+                  onAddCharacters={onAddCharacters}
                 />
               </div>
             )}
