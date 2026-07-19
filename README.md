@@ -53,6 +53,11 @@ export/import gives you a manual cross-device backup.
   - **Graph readability** — multi-edge pairs fan out with curved links, the
     connection-type legend is clickable to filter, selecting a node dims
     non-neighbors, and there's a "Fit" button to reframe.
+  - **Timeline events** — the post-save scan also fetches per-character events
+    for the new episode and backfills events for older episodes whose
+    (character, episode) pairs were never scanned. Only writes events for
+    characters you've already tracked — never invents NPCs. Cached per campaign
+    so repeat saves stay cheap.
 
   Both use **preview-then-accept**: suggestions are shown for review and only
   applied on a tap, so nothing overwrites your text. Available in the add modals

@@ -3,6 +3,7 @@ import { Plus, BookOpen, Users, Clock, Share2 } from "lucide-react";
 import { CAMPAIGNS, campaignById } from "./constants.js";
 import { campaignProgress } from "./utils/progress.js";
 import { scanConnectionsForNewEpisodes } from "./utils/scanConnections.js";
+import { scanEventsForNewEpisodes } from "./utils/scanEvents.js";
 import { useTrackerData } from "./hooks/useTrackerData.js";
 import EpisodesView from "./views/EpisodesView.jsx";
 import CharactersView from "./views/CharactersView.jsx";
@@ -102,27 +103,36 @@ export default function App() {
     setExpandedEp(epId);
   };
 
-  // Kick off the bidirectional connection scan for a set of newly-added
-  // episodes. Runs in the background with a small progress toast so it never
-  // blocks the UI.
-  const runConnectionScan = async (newEps) => {
+  // Kick off the post-save scan pass: connections + events, in parallel.
+  // Runs in the background with a small progress toast so it never blocks the
+  // UI. Character auto-fill (via scanEvents) uses characters the user has
+  // already tracked, so brand-new "queued" characters from the same save that
+  // land AFTER this fires get picked up on the next save (or via a later
+  // event scan pass).
+  const runPostSaveScan = async (newEps) => {
     if (!autoScan || !newEps.length) return;
+    setScanStatus({ done: 0, total: 1 }); // indeterminate "working…" until done
     try {
-      // Snapshot: peers = all logged episodes (incl. the new ones just added
-      // so batch-mates connect to each other).
       const allNow = [...episodes, ...newEps];
-      const added = await scanConnectionsForNewEpisodes({
-        newEpisodes: newEps,
-        allEpisodes: allNow,
-        existingConnections: connections,
-        addConnection,
-        onProgress: (done, total) => setScanStatus({ done, total }),
-      });
-      setScanStatus({ done: 1, total: 1, added });
-      // Auto-hide the "Added N" toast a few seconds later.
-      setTimeout(() => setScanStatus(null), 4000);
+      const [addedConns, addedEvents] = await Promise.all([
+        scanConnectionsForNewEpisodes({
+          newEpisodes: newEps,
+          allEpisodes: allNow,
+          existingConnections: connections,
+          addConnection,
+        }),
+        scanEventsForNewEpisodes({
+          newEpisodes: newEps,
+          allEpisodes: allNow,
+          characters,
+          existingEvents: events,
+          addEvent,
+        }),
+      ]);
+      setScanStatus({ done: 1, total: 1, added: addedConns, addedEvents });
+      setTimeout(() => setScanStatus(null), 4500);
     } catch (err) {
-      console.error("connection scan failed:", err);
+      console.error("post-save scan failed:", err);
       setScanStatus(null);
     }
   };
@@ -132,7 +142,7 @@ export default function App() {
     const created = addEpisode(ep);
     setShowAdd(null);
     // Fire-and-forget the connection scan (does nothing if disabled).
-    runConnectionScan([created]);
+    runPostSaveScan([created]);
   };
   const handleAddCharacter = (ch) => { addCharacter(ch); setShowAdd(null); };
   const handleAddEvent = (ev) => { addEvent(ev); setShowAdd(null); };
@@ -170,8 +180,11 @@ export default function App() {
         {scanStatus && (
           <div className="mt-2 text-amber-300/80 text-xs font-mono" role="status">
             {scanStatus.added != null
-              ? `✓ Added ${scanStatus.added} connection${scanStatus.added === 1 ? "" : "s"}`
-              : `Building connections… ${scanStatus.done}/${scanStatus.total}`}
+              ? `✓ Added ${scanStatus.added} connection${scanStatus.added === 1 ? "" : "s"}` +
+                (scanStatus.addedEvents != null
+                  ? ` + ${scanStatus.addedEvents} event${scanStatus.addedEvents === 1 ? "" : "s"}`
+                  : "")
+              : `Filling in the graph…`}
           </div>
         )}
       </header>
@@ -389,7 +402,7 @@ export default function App() {
               return ep;
             });
             setShowAdd(null);
-            runConnectionScan(created);
+            runPostSaveScan(created);
           }}
         />
       )}

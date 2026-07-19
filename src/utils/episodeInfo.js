@@ -24,11 +24,12 @@ export async function fetchEpisodeInfo({
   episodeNum,
   title,
   want = ["url", "summary", "title", "characters"],
+  characterNames,
 }) {
   const r = await fetch(ENDPOINT, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ campaign, episodeNum, title, want }),
+    body: JSON.stringify({ campaign, episodeNum, title, want, characterNames }),
   });
   if (!r.ok) throw new Error("Auto-fill request failed.");
   const d = await r.json();
@@ -37,5 +38,6 @@ export async function fetchEpisodeInfo({
     summary: d.summary ?? null,
     title: d.title ?? null,
     characters: Array.isArray(d.characters) ? d.characters : [],
+    events: Array.isArray(d.events) ? d.events : [],
   };
 }
