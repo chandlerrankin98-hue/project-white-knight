@@ -45,7 +45,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { campaign, episodeNum, title, want } = req.body || {};
+    const { campaign, episodeNum, title, want, characterNames } = req.body || {};
     if (!episodeNum) {
       return res.status(400).json({ error: "episodeNum is required" });
     }
@@ -54,6 +54,12 @@ export default async function handler(req, res) {
     const wantSummary = wants.includes("summary");
     const wantTitle = wants.includes("title");
     const wantCharacters = wants.includes("characters");
+    // Events are only requested when a caller passes a list of character names
+    // to write events for — the model must NEVER invent characters here.
+    const validCharacterNames = Array.isArray(characterNames)
+      ? characterNames.filter((n) => typeof n === "string" && n.trim()).map((n) => n.trim())
+      : [];
+    const wantEvents = wants.includes("events") && validCharacterNames.length > 0;
 
     const searchName = CAMPAIGN_SEARCH_NAMES[campaign] || "Critical Role";
     const tasks = [];
@@ -75,6 +81,12 @@ export default async function handler(req, res) {
     if (wantCharacters) {
       tasks.push(
         `- "characters": an array of the notable characters who FIRST appear / are introduced in this specific episode. Each item is {"name": string, "introInfo": string} where introInfo is a one-sentence spoiler-safe description of who they appear to be at introduction (no later plot twists). Empty array if none or unknown.`
+      );
+    }
+    if (wantEvents) {
+      const list = validCharacterNames.map((n) => `"${n}"`).join(", ");
+      tasks.push(
+        `- "events": an array of events describing what each of THESE SPECIFIC CHARACTERS did or experienced in this episode: [${list}]. Each item is {"characterName": string (MUST be exactly one of the names above), "description": string (one sentence, spoiler-scoped to this episode only)}. Skip any character who did not meaningfully appear. NEVER invent characters not in that list.`
       );
     }
 
@@ -109,7 +121,7 @@ If a field can't be determined confidently, set it to null.`;
       console.error("Anthropic API error:", response.status, detail);
       return res
         .status(502)
-        .json({ url: null, summary: null, title: null, characters: [], error: "Upstream error" });
+        .json({ url: null, summary: null, title: null, characters: [], events: [], error: "Upstream error" });
     }
 
     const data = await response.json();
@@ -124,6 +136,7 @@ If a field can't be determined confidently, set it to null.`;
     let summary = null;
     let epTitle = null;
     let characters = [];
+    let events = [];
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     if (jsonMatch) {
       try {
@@ -138,6 +151,17 @@ If a field can't be determined confidently, set it to null.`;
               name: c.name.trim(),
               introInfo: typeof c.introInfo === "string" ? c.introInfo.trim() : "",
             }));
+        }
+        if (wantEvents && Array.isArray(parsed.events)) {
+          // Guardrail: only accept events for characters we asked about.
+          const allowed = new Set(validCharacterNames.map((n) => n.toLowerCase()));
+          events = parsed.events
+            .filter((ev) => ev && typeof ev.characterName === "string" && typeof ev.description === "string")
+            .map((ev) => ({
+              characterName: ev.characterName.trim(),
+              description: ev.description.trim(),
+            }))
+            .filter((ev) => ev.characterName && ev.description && allowed.has(ev.characterName.toLowerCase()));
         }
       } catch {
         // fall through to regex fallback
@@ -157,11 +181,12 @@ If a field can't be determined confidently, set it to null.`;
       summary: wantSummary ? summary : null,
       title: wantTitle ? epTitle : null,
       characters: wantCharacters ? characters : [],
+      events: wantEvents ? events : [],
     });
   } catch (err) {
     console.error("episode-info failed:", err);
     return res
       .status(500)
-      .json({ url: null, summary: null, title: null, characters: [], error: "Internal error" });
+      .json({ url: null, summary: null, title: null, characters: [], events: [], error: "Internal error" });
   }
 }
